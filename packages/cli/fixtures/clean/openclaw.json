@@ -1,0 +1,17 @@
+{
+  "version": "1.0.0",
+  "sandbox": {
+    "mode": "strict"
+  },
+  "dmPolicy": "deny",
+  "allowlist": [
+    "api.anthropic.com",
+    "api.openai.com"
+  ],
+  "gateway": {
+    "bind": "localhost",
+    "port": 18789,
+    "auth": true,
+    "tls": true
+  }
+}
