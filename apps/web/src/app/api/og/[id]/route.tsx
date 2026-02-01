@@ -20,7 +20,9 @@ async function getScoreCard(id: string): Promise<ScoreCard | null> {
       high_count: 1,
       medium_count: 2,
       low_count: 1,
-      cli_version: '0.1.0',
+      cli_version: '0.8.0',
+      audit_mode: 'auto',
+      openclaw_version: null,
       created_at: new Date().toISOString(),
       expires_at: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
     };
