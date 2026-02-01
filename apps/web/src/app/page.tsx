@@ -217,9 +217,9 @@ export default function Home() {
             <ScrollReveal delay={0.3} direction="left">
               <Step
                 number={3}
-                title="Share (optional)"
-                description="Proud of your score? Use --share to get a link you can post on social media. Only aggregate data is sent — never your actual secrets."
-                icon="🔗"
+                title="Fix or share"
+                description="Run --fix to apply recommended fixes with before/after comparison. Or use --share to get a link you can post. Only aggregate data is sent — never your actual secrets."
+                icon="🔧"
               />
             </ScrollReveal>
           </div>
@@ -284,9 +284,20 @@ export default function Home() {
             </ScrollReveal>
             <ScrollReveal delay={0.25}>
               <FAQ question="How is this different from OpenClaw's built-in audit?">
-                OpenClaw has a basic <code className="bg-[#F1F5F9] px-2 py-0.5 rounded text-[#E85555]">security audit</code> command,
-                but CRABB gives you a unified 0-100 score, deeper credential scanning, shareable score cards for
-                social proof, and works without having OpenClaw CLI installed.
+                CRABB works in <strong>hybrid mode</strong> — it wraps OpenClaw's{' '}
+                <code className="bg-[#F1F5F9] px-2 py-0.5 rounded text-[#E85555]">security audit</code> command
+                and adds deeper credential/skills scanning. You get a unified 0-100 score, shareable score cards,
+                and a guided <code className="bg-[#F1F5F9] px-2 py-0.5 rounded text-[#E85555]">--fix</code> flow
+                that shows before/after comparison. Works even without OpenClaw CLI installed.
+              </FAQ>
+            </ScrollReveal>
+            <ScrollReveal delay={0.3}>
+              <FAQ question="What does --fix do?">
+                The <code className="bg-[#F1F5F9] px-2 py-0.5 rounded text-[#E85555]">--fix</code> flag runs a guided
+                remediation flow: it scans your setup, shows found issues, asks for confirmation, applies fixes via
+                OpenClaw CLI, then rescans to show you a before/after delta. Use{' '}
+                <code className="bg-[#F1F5F9] px-2 py-0.5 rounded text-[#E85555]">--yes</code> to skip confirmation
+                in CI/automation.
               </FAQ>
             </ScrollReveal>
           </div>

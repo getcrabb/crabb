@@ -3,8 +3,11 @@
 > Security Scanner for OpenClaw AI Agents
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![npm version](https://img.shields.io/npm/v/getcrabb.svg)](https://www.npmjs.com/package/getcrabb)
 
 CRABB is a CLI tool that scans your OpenClaw AI agent configuration for security vulnerabilities and produces a score from 0-100 with prioritized findings.
+
+**v0.8**: Hybrid scanning with OpenClaw CLI integration + guided fix flow.
 
 ## Features
 
@@ -12,6 +15,8 @@ CRABB is a CLI tool that scans your OpenClaw AI agent configuration for security
 - **Privacy-first** — Never outputs actual secrets, only findings metadata
 - **Four security scanners** — Credentials, Skills, Permissions, Network
 - **CI-friendly** — JSON output, exit codes, no-color mode
+- **Hybrid mode (v0.8)** — Combines OpenClaw audit + Crabb extras
+- **Fix flow (v0.8)** — Guided fixes with consent gate and delta reporting
 
 ## Quick Start
 
@@ -26,6 +31,9 @@ crabb --path ./my-openclaw
 
 # JSON output for CI
 crabb --json
+
+# Fix issues (v0.8)
+crabb --fix
 ```
 
 ## Score Card
@@ -60,12 +68,34 @@ crabb --json
 | 1 | Score < 75 or Critical/High findings |
 | 2 | Scan failed (IO error, path not found) |
 
+## CLI Options (v0.8)
+
+```
+Basic:
+  -p, --path <dir>     Path to OpenClaw directory
+  -j, --json           Output results as JSON
+  -s, --share          Share score card to crabb.ai
+      --no-color       Disable colored output
+
+Audit Mode:
+      --audit <mode>   auto|openclaw|crabb|off (default: auto)
+      --deep           Request deep audit (OpenClaw only)
+
+Fix Mode:
+      --fix            Run OpenClaw --fix after scan
+      --yes            Skip confirmation prompt
+```
+
 ## Project Structure
 
 ```
 crabb/
 ├── packages/cli/     # CLI scanner (npm: getcrabb)
-└── apps/web/         # Score card sharing website [TODO]
+│   ├── src/
+│   │   ├── scanners/ # 4 security scanners
+│   │   ├── openclaw/ # v0.8: OpenClaw CLI integration
+│   │   └── fix/      # v0.8: Fix flow
+└── apps/web/         # Score card sharing website (crabb.ai)
 ```
 
 ## Development

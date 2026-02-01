@@ -1,0 +1,20 @@
+OpenClaw Security Audit
+=======================
+
+[CRITICAL] Gateway exposed without authentication
+  The gateway is exposed to the network without authentication enabled
+  File: openclaw.json:15
+
+[CRITICAL] Sandbox is disabled
+  Running without sandbox increases security risks
+  File: openclaw.json:8
+
+[MEDIUM] DM policy set to allow
+  Direct message policy is too permissive
+  File: openclaw.json:22
+
+✓ TLS configuration is secure
+✓ Allowlist is properly configured
+✓ Network binding is localhost only
+
+Summary: 7 passed, 3 failed

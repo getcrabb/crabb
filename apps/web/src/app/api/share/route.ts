@@ -19,7 +19,10 @@ interface SharePayload {
   mediumCount: number;
   lowCount: number;
   timestamp: string;
+  // v0.8 fields
   cliVersion?: string;
+  auditMode?: 'auto' | 'openclaw' | 'crabb' | 'off';
+  openclawVersion?: string | null;
 }
 
 export async function POST(request: NextRequest) {
@@ -78,6 +81,8 @@ export async function POST(request: NextRequest) {
         medium_count: payload.mediumCount ?? 0,
         low_count: payload.lowCount ?? 0,
         cli_version: payload.cliVersion ?? null,
+        audit_mode: payload.auditMode ?? null,
+        openclaw_version: payload.openclawVersion ?? null,
       })
       .select('id')
       .single();

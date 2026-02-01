@@ -627,19 +627,19 @@ Why they are not direct competitors:
 
 **Share is ready when:**
 
-- [x] `--share` returns a link (mock implementation, API stub ready)
+- [x] `--share` returns a link
 - [x] payload contains only safe aggregates
-- [ ] page loads without login (requires apps/web)
-- [ ] OG image renders in social previews (requires apps/web)
+- [x] page loads without login
+- [x] OG image renders in social previews
 - [x] delete token returned in response
 
 **Launch is ready when:**
 
-- [ ] landing page is live on crabb.ai (requires apps/web)
-- [ ] npm package is published
+- [x] landing page is live on crabb.ai
+- [x] npm package is published (`getcrabb@0.1.1`)
 - [x] GitHub repo is public with README
-- [ ] privacy policy is published
-- [ ] differentiation vs `openclaw security audit` is explained in FAQ
+- [x] privacy policy is published
+- [x] differentiation vs `openclaw security audit` is explained in FAQ
 
 ---
 
@@ -674,6 +674,7 @@ Why they are not direct competitors:
 | v0.5 | 2026‑02‑01 | Fixed skills scan paths (`~/.openclaw/skills`, workspaces, `skills.load.extraDirs`), clarified DM key differences (Discord/Slack), sandbox.mode values, gateway.auth semantics, updated file tree and Network Scanner checks |
 | v0.6 | 2026‑02‑01 | Implementation status update |
 | v0.7 | 2026‑02‑01 | Web app implementation |
+| v0.8 | 2026‑02‑01 | OpenClaw Audit Wrapper: hybrid scanning, fix flow, consent gate, delta reporting |
 
 ---
 
@@ -708,12 +709,77 @@ Why they are not direct competitors:
 | Privacy policy | ✅ Done | /privacy page |
 | Supabase schema | ✅ Done | SQL ready in supabase/schema.sql |
 
-#### Remaining (Launch)
+#### Completed (Launch)
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| Supabase project | ❌ TODO | Create project, run schema.sql |
-| Environment vars | ❌ TODO | Configure NEXT_PUBLIC_SUPABASE_* |
-| Vercel deploy | ❌ TODO | Deploy apps/web |
-| npm publish | ❌ TODO | Publish `getcrabb` to npm |
-| Domain setup | ❌ TODO | crabb.ai DNS |
+| Supabase project | ✅ Done | Database configured with RLS |
+| Environment vars | ✅ Done | Vercel env vars set |
+| Vercel deploy | ✅ Done | https://crabb.ai |
+| npm publish | ✅ Done | `getcrabb@0.1.1` |
+| Domain setup | ✅ Done | crabb.ai + www.crabb.ai |
+
+---
+
+### 🎉 MVP COMPLETE
+
+All acceptance criteria met. Live at:
+- **Website:** https://crabb.ai
+- **npm:** https://npmjs.com/package/getcrabb
+- **GitHub:** https://github.com/getcrabb/crabb
+
+---
+
+### v0.8 Implementation Status (OpenClaw Audit Wrapper)
+
+#### Completed (v0.8)
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| Types extension | ✅ Done | AuditMode, FindingSource, OpenClawInfo, ScanDelta |
+| OpenClaw detection | ✅ Done | `src/openclaw/detection.ts` |
+| OpenClaw runner | ✅ Done | `src/openclaw/runner.ts` |
+| Output parser | ✅ Done | `src/openclaw/parser.ts` — JSON + text |
+| Severity mapper | ✅ Done | `src/openclaw/mapper.ts` |
+| Path override | ✅ Done | `src/openclaw/path-override.ts` |
+| CLI flags | ✅ Done | --audit, --deep, --fix, --yes, --print-openclaw |
+| Hybrid scanning | ✅ Done | `scanners/index.ts` — merge logic |
+| Fix consent | ✅ Done | `src/fix/consent.ts` |
+| Delta calculation | ✅ Done | `src/fix/delta.ts` |
+| Fix orchestration | ✅ Done | `src/fix/index.ts` |
+| Terminal output | ✅ Done | New print functions |
+| JSON output | ✅ Done | meta object |
+| Unit tests | ✅ Done | 71 tests passing |
+
+#### New CLI Flags (v0.8)
+
+```
+--audit <auto|openclaw|crabb|off>   Audit mode (default: auto)
+--deep                               Deep audit (OpenClaw only)
+--fix                                Run openclaw --fix
+--yes                                Skip fix confirmation
+--print-openclaw                     Debug: show raw output
+```
+
+#### v0.8 Architecture
+
+```
+Hybrid Mode (--audit auto):
+┌─────────────────────────────────────────┐
+│  OpenClaw CLI                           │
+│  └─ permissions/network findings        │
+├─────────────────────────────────────────┤
+│  Crabb Extras                           │
+│  └─ credentials/skills findings         │
+├─────────────────────────────────────────┤
+│  Merge + Dedup by fingerprint           │
+│  └─ Unified CRABB SCORE                 │
+└─────────────────────────────────────────┘
+
+Fix Flow:
+1. Pre-scan → show findings
+2. Consent prompt (or --yes)
+3. openclaw security audit --fix
+4. Post-scan → delta
+5. Before/After comparison
+```

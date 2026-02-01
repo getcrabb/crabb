@@ -2,6 +2,8 @@
 
 CLI security scanner that produces a CRABB SCORE (0-100) with prioritized findings.
 
+**v0.8**: Now supports hybrid scanning with OpenClaw CLI integration and guided fix flow.
+
 ## Installation
 
 ```bash
@@ -27,6 +29,35 @@ crabb --share
 crabb --no-color
 ```
 
+### Audit Mode (v0.8)
+
+```bash
+# Auto-detect: use OpenClaw CLI if available, else Crabb-only
+crabb --audit auto
+
+# Require OpenClaw CLI (fails if not found)
+crabb --audit openclaw
+
+# Crabb scanners only (no OpenClaw CLI dependency)
+crabb --audit crabb
+
+# Request deep audit (OpenClaw only)
+crabb --deep
+```
+
+### Fix Mode (v0.8)
+
+```bash
+# Scan, show findings, prompt for fix, show before/after delta
+crabb --fix
+
+# Non-interactive fix (skip confirmation prompt)
+crabb --fix --yes
+
+# Apply fix and exit immediately (no post-scan)
+crabb --fix-only --yes
+```
+
 ## Options
 
 | Flag | Short | Description |
@@ -37,6 +68,12 @@ crabb --no-color
 | `--no-color` | | Disable colored output |
 | `--help` | `-h` | Show help message |
 | `--version` | `-v` | Show version number |
+| `--audit <mode>` | | Audit mode: auto, openclaw, crabb, off |
+| `--deep` | | Request deep audit (OpenClaw only) |
+| `--fix` | | Run OpenClaw --fix after scan |
+| `--fix-only` | | Apply fix and exit (no post-rescan) |
+| `--yes` | | Skip confirmation prompt for --fix |
+| `--print-openclaw` | | Debug: show raw OpenClaw output |
 
 ## Exit Codes
 
@@ -44,7 +81,34 @@ crabb --no-color
 |------|-------------|
 | 0 | Score >= 75, no Critical/High findings |
 | 1 | Score < 75 or Critical/High findings present |
-| 2 | Scan failed (IO error, OpenClaw not found) |
+| 2 | Scan failed (IO error, OpenClaw not found, --audit openclaw but CLI missing) |
+
+## Audit Modes (v0.8)
+
+| Mode | OpenClaw CLI | Scanners |
+|------|--------------|----------|
+| `auto` (default) | Used if available | Hybrid: OpenClaw + Crabb extras |
+| `openclaw` | Required | OpenClaw audit only |
+| `crabb` | Not used | Crabb scanners only |
+| `off` | Not used | Same as crabb |
+
+**Hybrid mode** combines:
+- **OpenClaw CLI** → permissions, network checks
+- **Crabb extras** → credentials, skills deep scan
+
+Results are merged and deduplicated by fingerprint.
+
+## Fix Flow (v0.8)
+
+When you run `crabb --fix`:
+
+1. **Pre-scan** — analyze current state
+2. **Consent** — show findings, ask for confirmation
+3. **Fix** — run `openclaw security audit --fix`
+4. **Post-scan** — verify fixes applied
+5. **Delta** — show before/after comparison
+
+Use `--yes` to skip the confirmation prompt (for CI/automation).
 
 ## Scanners
 

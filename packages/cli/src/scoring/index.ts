@@ -1,4 +1,4 @@
-import type { ScannerResult, Finding, Grade, ScanResult } from '../types/index.js';
+import type { ScannerResult, Finding, Grade, ScanResult, ScanResultMeta } from '../types/index.js';
 
 export function calculateScore(results: ScannerResult[]): number {
   const totalPenalty = results.reduce((sum, r) => sum + r.penalty, 0);
@@ -24,7 +24,8 @@ export function determineGrade(score: number, findings: Finding[]): Grade {
 
 export function buildScanResult(
   results: ScannerResult[],
-  openclawPath: string
+  openclawPath: string,
+  meta?: ScanResultMeta
 ): ScanResult {
   const findings = results.flatMap(r => r.findings);
   const score = calculateScore(results);
@@ -37,6 +38,7 @@ export function buildScanResult(
     findings,
     timestamp: new Date().toISOString(),
     openclawPath,
+    meta,
   };
 }
 

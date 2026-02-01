@@ -21,6 +21,8 @@ create table if not exists score_cards (
 
   -- Metadata
   cli_version text,
+  audit_mode text check (audit_mode in ('auto', 'openclaw', 'crabb', 'off')),
+  openclaw_version text,
   created_at timestamptz default now(),
   expires_at timestamptz default now() + interval '90 days'
 );
@@ -66,3 +68,10 @@ $$ language plpgsql security definer;
 -- Optional: Create a scheduled job to run cleanup daily
 -- (Configure in Supabase Dashboard > Database > Extensions > pg_cron)
 -- select cron.schedule('cleanup-expired-cards', '0 3 * * *', 'select cleanup_expired_score_cards()');
+
+-- Migration v0.8: Add audit_mode and openclaw_version columns
+-- Run this on existing databases:
+--
+-- ALTER TABLE score_cards ADD COLUMN IF NOT EXISTS audit_mode text
+--   CHECK (audit_mode IN ('auto', 'openclaw', 'crabb', 'off'));
+-- ALTER TABLE score_cards ADD COLUMN IF NOT EXISTS openclaw_version text;

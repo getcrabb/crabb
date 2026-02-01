@@ -1,8 +1,38 @@
 import type { ScanResult, SharePayload } from '../types/index.js';
 import { countBySeverity } from '../scoring/index.js';
 
+export interface JsonOutput {
+  meta: {
+    cliVersion: string;
+    auditMode: string;
+    openclawVersion: string | null;
+    openclawAvailable: boolean;
+    timestamp: string;
+  };
+  score: number;
+  grade: string;
+  scanners: ScanResult['scanners'];
+  findings: ScanResult['findings'];
+  openclawPath: string;
+}
+
 export function formatJsonOutput(result: ScanResult): string {
-  return JSON.stringify(result, null, 2);
+  const output: JsonOutput = {
+    meta: {
+      cliVersion: result.meta?.cliVersion || '0.8.0',
+      auditMode: result.meta?.auditMode || 'crabb',
+      openclawVersion: result.meta?.openclawVersion || null,
+      openclawAvailable: result.meta?.openclawAvailable || false,
+      timestamp: result.timestamp,
+    },
+    score: result.score,
+    grade: result.grade,
+    scanners: result.scanners,
+    findings: result.findings,
+    openclawPath: result.openclawPath,
+  };
+
+  return JSON.stringify(output, null, 2);
 }
 
 export function buildSharePayload(result: ScanResult): SharePayload {
@@ -21,5 +51,9 @@ export function buildSharePayload(result: ScanResult): SharePayload {
     mediumCount: counts.medium,
     lowCount: counts.low,
     timestamp: result.timestamp,
+    // v0.8 fields
+    auditMode: result.meta?.auditMode,
+    openclawVersion: result.meta?.openclawVersion,
+    cliVersion: result.meta?.cliVersion,
   };
 }

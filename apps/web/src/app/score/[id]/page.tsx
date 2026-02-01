@@ -26,7 +26,9 @@ async function getScoreCard(id: string): Promise<ScoreCard | null> {
       high_count: 1,
       medium_count: 2,
       low_count: 1,
-      cli_version: '0.1.0',
+      cli_version: '0.8.0',
+      audit_mode: 'auto',
+      openclaw_version: '2.1.0',
       created_at: new Date().toISOString(),
       expires_at: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
     };
@@ -300,6 +302,27 @@ export default async function ScoreCardPage({ params }: PageProps) {
               day: 'numeric',
             })}
           </div>
+
+          {/* Version info */}
+          {(card.cli_version || card.audit_mode || card.openclaw_version) && (
+            <div className="mt-4 flex justify-center gap-3 flex-wrap">
+              {card.cli_version && (
+                <span className="px-3 py-1 bg-[#F1F5F9] rounded-full text-xs text-[#64748B] font-mono">
+                  crabb v{card.cli_version}
+                </span>
+              )}
+              {card.audit_mode && (
+                <span className="px-3 py-1 bg-[#F1F5F9] rounded-full text-xs text-[#64748B]">
+                  {card.audit_mode === 'auto' ? '🔄 hybrid' : card.audit_mode === 'openclaw' ? '🔗 openclaw' : '🦀 crabb-only'}
+                </span>
+              )}
+              {card.openclaw_version && (
+                <span className="px-3 py-1 bg-[#F1F5F9] rounded-full text-xs text-[#64748B] font-mono">
+                  openclaw v{card.openclaw_version}
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Share prompt */}

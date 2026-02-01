@@ -1,7 +1,7 @@
 import chalk from 'chalk';
 import ora from 'ora';
 import boxen from 'boxen';
-import type { ScanResult, Finding, Grade } from '../types/index.js';
+import type { ScanResult, Finding, Grade, AuditMode, OpenClawInfo, ScanDelta } from '../types/index.js';
 import { countBySeverity } from '../scoring/index.js';
 import { formatFindingLocation } from '../utils/redact.js';
 
@@ -136,4 +136,167 @@ export function printError(message: string) {
 
 export function printSuccess(message: string) {
   console.log(chalk.green(`\u2713 ${message}`));
+}
+
+export function printWarning(message: string) {
+  console.log(chalk.yellow(`\u26A0 ${message}`));
+}
+
+/**
+ * Prints audit mode information and OpenClaw version if available.
+ */
+export function printAuditModeInfo(auditMode: AuditMode, openclawInfo: OpenClawInfo) {
+  const modeLabels: Record<AuditMode, string> = {
+    auto: 'auto (hybrid)',
+    openclaw: 'openclaw',
+    crabb: 'crabb-only',
+    off: 'off',
+  };
+
+  const parts: string[] = [];
+
+  if (openclawInfo.available) {
+    parts.push(`OpenClaw: ${chalk.green('v' + (openclawInfo.version || 'unknown'))}`);
+  } else {
+    parts.push(`OpenClaw: ${chalk.dim('not found')}`);
+  }
+
+  parts.push(`Mode: ${chalk.cyan(modeLabels[auditMode])}`);
+
+  console.log(chalk.dim(parts.join(' | ')));
+  console.log();
+}
+
+/**
+ * Prints next steps suggestions based on scan results.
+ */
+export function printNextSteps(result: ScanResult, openclawAvailable: boolean) {
+  if (result.findings.length === 0) {
+    return;
+  }
+
+  console.log(chalk.bold('Next steps:'));
+
+  if (openclawAvailable) {
+    const hasCriticalOrHigh = result.findings.some(
+      f => f.severity === 'critical' || f.severity === 'high'
+    );
+
+    if (hasCriticalOrHigh) {
+      console.log(chalk.yellow(`  npx getcrabb --fix`) + chalk.dim('    Apply recommended fixes'));
+    }
+  }
+
+  console.log(chalk.dim(`  npx getcrabb --json`) + chalk.dim('   Machine-readable output'));
+  console.log(chalk.dim(`  npx getcrabb --share`) + chalk.dim('  Share score card'));
+  console.log();
+}
+
+/**
+ * Prints fix delta (before/after comparison).
+ */
+export function printFixDelta(delta: ScanDelta) {
+  const scoreChange = delta.newScore - delta.previousScore;
+  const scoreSymbol = scoreChange > 0 ? '+' : '';
+  const scoreColor = scoreChange > 0 ? chalk.green : scoreChange < 0 ? chalk.red : chalk.dim;
+
+  console.log();
+  console.log(
+    boxen(
+      [
+        chalk.bold('Fix Summary'),
+        '',
+        `Score: ${delta.previousScore} \u2192 ${delta.newScore} (${scoreColor(scoreSymbol + scoreChange)})`,
+        '',
+        delta.fixed.length > 0
+          ? chalk.green(`\u2713 Fixed: ${delta.fixed.length} issue(s)`)
+          : chalk.dim('  Fixed: 0'),
+        delta.newFindings.length > 0
+          ? chalk.yellow(`\u26A0 New: ${delta.newFindings.length} issue(s)`)
+          : chalk.dim('  New: 0'),
+        delta.unchanged.length > 0
+          ? chalk.dim(`  Unchanged: ${delta.unchanged.length} issue(s)`)
+          : '',
+      ]
+        .filter(Boolean)
+        .join('\n'),
+      {
+        padding: 1,
+        borderColor: scoreChange > 0 ? 'green' : scoreChange < 0 ? 'red' : 'gray',
+        borderStyle: 'round',
+      }
+    )
+  );
+  console.log();
+
+  // Show fixed issues
+  if (delta.fixed.length > 0) {
+    console.log(chalk.green.bold('Fixed issues:'));
+    for (const finding of delta.fixed.slice(0, 5)) {
+      console.log(chalk.green(`  \u2713 ${finding.title}`));
+    }
+    if (delta.fixed.length > 5) {
+      console.log(chalk.dim(`  ... and ${delta.fixed.length - 5} more`));
+    }
+    console.log();
+  }
+
+  // Show new issues (if any appeared after fix - unusual but possible)
+  if (delta.newFindings.length > 0) {
+    console.log(chalk.yellow.bold('New issues detected:'));
+    for (const finding of delta.newFindings.slice(0, 3)) {
+      console.log(chalk.yellow(`  \u26A0 ${finding.title}`));
+    }
+    console.log();
+  }
+}
+
+/**
+ * Prints findings grouped by source (OpenClaw vs Crabb).
+ */
+export function printFindingsBySource(findings: Finding[]) {
+  const openclawFindings = findings.filter(f => f.source === 'openclaw_audit');
+  const crabbFindings = findings.filter(f => f.source?.startsWith('crabb_'));
+
+  if (openclawFindings.length > 0) {
+    console.log(chalk.bold('\u2550\u2550\u2550 OpenClaw Audit \u2550\u2550\u2550\n'));
+    printFindingsList(openclawFindings);
+  }
+
+  if (crabbFindings.length > 0) {
+    console.log(chalk.bold('\u2550\u2550\u2550 Crabb Extras \u2550\u2550\u2550\n'));
+    printFindingsList(crabbFindings);
+  }
+
+  // Findings without source (legacy)
+  const otherFindings = findings.filter(f => !f.source);
+  if (otherFindings.length > 0 && (openclawFindings.length > 0 || crabbFindings.length > 0)) {
+    console.log(chalk.bold('\u2550\u2550\u2550 Other \u2550\u2550\u2550\n'));
+    printFindingsList(otherFindings);
+  } else if (otherFindings.length > 0) {
+    // No source-tagged findings, just print normally
+    printFindingsList(otherFindings);
+  }
+}
+
+function printFindingsList(findings: Finding[]) {
+  const sortedFindings = [...findings].sort((a, b) => {
+    const order = { critical: 0, high: 1, medium: 2, low: 3 };
+    return order[a.severity] - order[b.severity];
+  });
+
+  for (const finding of sortedFindings) {
+    const severityColor = SEVERITY_COLORS[finding.severity];
+    const icon = SEVERITY_ICONS[finding.severity];
+
+    console.log(`${icon} ${severityColor(finding.severity.toUpperCase())} ${chalk.bold(finding.title)}`);
+    console.log(`   ${chalk.dim(finding.description)}`);
+    if (finding.file) {
+      console.log(`   ${chalk.cyan(formatFindingLocation(finding.file, finding.line))}`);
+    }
+    if (finding.remediation) {
+      console.log(`   ${chalk.green('\u2192')} ${chalk.dim(finding.remediation)}`);
+    }
+    console.log();
+  }
 }

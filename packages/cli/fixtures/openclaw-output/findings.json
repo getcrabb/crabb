@@ -1,0 +1,37 @@
+{
+  "findings": [
+    {
+      "id": "gateway_exposed_no_auth",
+      "severity": "critical",
+      "title": "Gateway exposed without authentication",
+      "description": "The gateway is exposed to the network without authentication enabled",
+      "file": "openclaw.json",
+      "line": 15,
+      "remediation": "Enable authentication in gateway configuration"
+    },
+    {
+      "id": "sandbox_disabled",
+      "severity": "critical",
+      "title": "Sandbox is disabled",
+      "description": "Running without sandbox increases security risks",
+      "file": "openclaw.json",
+      "line": 8,
+      "remediation": "Enable sandbox mode in configuration"
+    },
+    {
+      "id": "dm_policy_allow",
+      "severity": "medium",
+      "title": "DM policy set to allow",
+      "description": "Direct message policy is too permissive",
+      "file": "openclaw.json",
+      "line": 22,
+      "remediation": "Set dm_policy to 'deny' or 'ask'"
+    }
+  ],
+  "summary": {
+    "passed": 7,
+    "failed": 3,
+    "total": 10
+  },
+  "timestamp": "2024-01-15T10:30:00Z"
+}

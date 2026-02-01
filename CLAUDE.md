@@ -39,6 +39,8 @@ crabb/
 │       │   ├── scoring/          # Score calculation
 │       │   ├── output/           # Terminal + JSON output
 │       │   ├── share/            # Share API client
+│       │   ├── openclaw/         # v0.8: OpenClaw CLI integration
+│       │   ├── fix/              # v0.8: Fix flow (consent, delta)
 │       │   └── utils/            # Utilities (fs, redact)
 │       └── fixtures/             # Test fixtures
 ├── turbo.json
@@ -75,12 +77,64 @@ Four scanning modules with risk-based scoring:
 
 Score formula: `100 - sum(min(module_cap, findings_penalty))`
 
+## v0.8 Architecture: OpenClaw Audit Wrapper
+
+Crabb v0.8 pivots from standalone scanner to wrapper over `openclaw security audit`:
+
+**Hybrid Mode (auto):**
+- OpenClaw CLI handles permissions/network scanning
+- Crabb provides "extra" scanners (credentials, skills)
+- Results merged and deduplicated by fingerprint
+
+**Crabb-Only Mode:**
+- All 4 scanners run natively
+- No OpenClaw CLI dependency
+
+**Fix Flow:**
+1. Pre-scan → show findings
+2. Consent prompt (skippable with `--yes`)
+3. Run `openclaw security audit --fix`
+4. Post-scan → calculate delta
+5. Display before/after comparison
+
+**New Modules:**
+- `src/openclaw/` — detection, runner, parser, mapper, path-override
+- `src/fix/` — consent gate, delta calculation, orchestration
+
+**OpenClaw Module Details:**
+- `detection.ts` — findOpenClawPath(), getOpenClawVersion(), detectOpenClaw()
+- `runner.ts` — runOpenClawAudit() with timeout and path override
+- `parser.ts` — parseAuditOutput() auto-detects JSON vs text
+- `mapper.ts` — mapOpenClawFinding(), createCrabbFinding(), severity mapping table
+- `path-override.ts` — createPathOverride() for custom --path via HOME symlink
+
+**Fix Module Details:**
+- `consent.ts` — askFixConsent() with findings preview
+- `delta.ts` — calculateDelta() returns fixed/new/unchanged findings
+- `index.ts` — runFixFlow() orchestrates pre-scan → consent → fix → post-scan
+
 ## CLI Flags
 
+**Basic:**
 - `--path <dir>` — custom OpenClaw path (default: ~/.openclaw/)
 - `--json` — machine-readable output
 - `--share` — create shareable score card (only network call)
 - `--no-color` — CI compatibility
+
+**Audit Mode (v0.8):**
+- `--audit <mode>` — auto|openclaw|crabb|off (default: auto)
+  - `auto` — Use OpenClaw CLI if available, else Crabb-only
+  - `openclaw` — Require OpenClaw CLI
+  - `crabb` — Use Crabb scanners only
+  - `off` — Skip audit entirely
+- `--deep` — Request deep audit (OpenClaw only)
+
+**Fix Mode (v0.8):**
+- `--fix` — Run OpenClaw `--fix` after scan
+- `--yes` — Skip confirmation prompt for `--fix`
+
+**Debug:**
+- `--print-openclaw` — Show raw OpenClaw CLI output
 
 ## Exit Codes
 
@@ -112,3 +166,23 @@ Score formula: `100 - sum(min(module_cap, findings_penalty))`
 - CLI is offline by default — network calls only with `--share`
 - Never print or upload actual secrets — output only type, file, line (redacted)
 - Share payload contains only aggregates (score, grade, counts)
+
+## Testing
+
+**Unit Tests (71 passing):**
+- `src/scoring/index.test.ts` — scoring formula, grades
+- `src/utils/redact.test.ts` — secret redaction
+- `src/scanners/*.test.ts` — credentials, skills, permissions
+- `src/openclaw/detection.test.ts` — PATH detection, version parsing
+- `src/openclaw/parser.test.ts` — JSON/text parsing
+- `src/openclaw/mapper.test.ts` — severity mapping
+- `src/fix/delta.test.ts` — before/after diff
+
+**Fixtures:**
+- `fixtures/clean/` — clean OpenClaw config for testing
+- `fixtures/openclaw-output/` — mock OpenClaw audit outputs (JSON, text, malformed)
+
+**Run Tests:**
+```bash
+cd packages/cli && pnpm test
+```

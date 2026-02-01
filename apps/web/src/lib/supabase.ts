@@ -24,6 +24,8 @@ export interface ScoreCard {
   medium_count: number;
   low_count: number;
   cli_version: string | null;
+  audit_mode: 'auto' | 'openclaw' | 'crabb' | 'off' | null;
+  openclaw_version: string | null;
   created_at: string;
   expires_at: string;
 }
