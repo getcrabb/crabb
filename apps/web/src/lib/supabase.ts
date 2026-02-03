@@ -3,7 +3,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
-// Create client only if credentials are provided
+// Public (anon) client for read-only access
 export const supabase: SupabaseClient | null =
   supabaseUrl && supabaseAnonKey
     ? createClient(supabaseUrl, supabaseAnonKey)
@@ -12,7 +12,6 @@ export const supabase: SupabaseClient | null =
 export interface ScoreCard {
   id: string;
   public_id: string;
-  delete_token: string;
   score: number;
   grade: string;
   credentials_count: number;
@@ -28,4 +27,9 @@ export interface ScoreCard {
   openclaw_version: string | null;
   created_at: string;
   expires_at: string;
+  // v0.8: Verified badge
+  verified: boolean | null;
+  // v0.8: Improvement delta (post-fix)
+  improvement_delta: number | null;
+  improvement_previous_score: number | null;
 }

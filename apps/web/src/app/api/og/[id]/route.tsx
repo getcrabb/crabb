@@ -9,7 +9,6 @@ async function getScoreCard(id: string): Promise<ScoreCard | null> {
     return {
       id: 'mock-id',
       public_id: id,
-      delete_token: 'mock-token',
       score: 85,
       grade: 'B',
       credentials_count: 0,
@@ -25,12 +24,36 @@ async function getScoreCard(id: string): Promise<ScoreCard | null> {
       openclaw_version: null,
       created_at: new Date().toISOString(),
       expires_at: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
+      verified: true,
+      improvement_delta: null,
+      improvement_previous_score: null,
     };
   }
 
   const { data, error } = await supabase
     .from('score_cards')
-    .select('*')
+    .select([
+      'id',
+      'public_id',
+      'score',
+      'grade',
+      'credentials_count',
+      'skills_count',
+      'permissions_count',
+      'network_count',
+      'critical_count',
+      'high_count',
+      'medium_count',
+      'low_count',
+      'cli_version',
+      'audit_mode',
+      'openclaw_version',
+      'created_at',
+      'expires_at',
+      'verified',
+      'improvement_delta',
+      'improvement_previous_score',
+    ].join(','))
     .eq('public_id', id)
     .gt('expires_at', new Date().toISOString())
     .single();
@@ -39,7 +62,8 @@ async function getScoreCard(id: string): Promise<ScoreCard | null> {
     return null;
   }
 
-  return data as ScoreCard;
+  // Type assertion through unknown for Supabase generic return type
+  return data as unknown as ScoreCard;
 }
 
 export async function GET(

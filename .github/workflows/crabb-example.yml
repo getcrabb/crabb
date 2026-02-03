@@ -1,0 +1,43 @@
+# Example workflow for Crabb Security Scan
+# Copy this file to your .github/workflows/ directory
+
+name: Crabb Security Scan
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  # Allow manual trigger
+  workflow_dispatch:
+
+jobs:
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run Crabb Security Scan
+        id: crabb
+        uses: crabb-ai/crabb/.github/actions/crabb-scan@main
+        with:
+          # Customize these options:
+          path: ~/.openclaw
+          fail-on-score: 75
+          audit-mode: auto
+
+      - name: Display Results
+        if: always()
+        env:
+          SCORE: ${{ steps.crabb.outputs.score }}
+          GRADE: ${{ steps.crabb.outputs.grade }}
+          CRITICAL: ${{ steps.crabb.outputs.critical-count }}
+          HIGH: ${{ steps.crabb.outputs.high-count }}
+        run: |
+          echo "Score: $SCORE"
+          echo "Grade: $GRADE"
+          echo "Critical: $CRITICAL"
+          echo "High: $HIGH"

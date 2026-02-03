@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, delimiter } from 'node:path';
 import type { OpenClawInfo } from '../types/index.js';
 
 /**
@@ -14,7 +14,7 @@ export function findOpenClawPath(): string | null {
   }
 
   // Check PATH - try to resolve 'openclaw' command
-  const pathDirs = (process.env['PATH'] || '').split(':');
+  const pathDirs = (process.env['PATH'] || '').split(delimiter);
   for (const dir of pathDirs) {
     const candidate = join(dir, 'openclaw');
     if (existsSync(candidate)) {

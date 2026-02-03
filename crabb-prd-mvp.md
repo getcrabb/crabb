@@ -501,7 +501,7 @@ crabb/
 create table score_cards (
   id uuid primary key default gen_random_uuid(),
   public_id text unique not null,      -- short id for URL
-  delete_token text not null,          -- for deletion without account
+  delete_token_hash text not null,     -- sha256 hash (never store raw token)
   score integer not null,              -- 0-100
   grade text not null,                 -- A/B/C/D/F
   credentials_count integer default 0,

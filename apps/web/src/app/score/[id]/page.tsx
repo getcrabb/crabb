@@ -15,7 +15,6 @@ async function getScoreCard(id: string): Promise<ScoreCard | null> {
     return {
       id: 'mock-id',
       public_id: id,
-      delete_token: 'mock-token',
       score: 85,
       grade: 'B',
       credentials_count: 0,
@@ -31,12 +30,36 @@ async function getScoreCard(id: string): Promise<ScoreCard | null> {
       openclaw_version: '2.1.0',
       created_at: new Date().toISOString(),
       expires_at: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
+      verified: true,
+      improvement_delta: 23,
+      improvement_previous_score: 62,
     };
   }
 
   const { data, error } = await supabase
     .from('score_cards')
-    .select('*')
+    .select([
+      'id',
+      'public_id',
+      'score',
+      'grade',
+      'credentials_count',
+      'skills_count',
+      'permissions_count',
+      'network_count',
+      'critical_count',
+      'high_count',
+      'medium_count',
+      'low_count',
+      'cli_version',
+      'audit_mode',
+      'openclaw_version',
+      'created_at',
+      'expires_at',
+      'verified',
+      'improvement_delta',
+      'improvement_previous_score',
+    ].join(','))
     .eq('public_id', id)
     .gt('expires_at', new Date().toISOString())
     .single();
@@ -45,7 +68,8 @@ async function getScoreCard(id: string): Promise<ScoreCard | null> {
     return null;
   }
 
-  return data as ScoreCard;
+  // Type assertion through unknown for Supabase generic return type
+  return data as unknown as ScoreCard;
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -194,6 +218,34 @@ export default async function ScoreCardPage({ params }: PageProps) {
               </div>
             </div>
           </div>
+
+          {/* Verified Badge */}
+          {card.verified && (
+            <div className="flex justify-center mb-6">
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-full font-bold shadow-lg">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                  <path d="M22 4 12 14.01l-3-3" />
+                </svg>
+                Crabb Verified
+              </div>
+            </div>
+          )}
+
+          {/* Improvement Badge (after fix) */}
+          {card.improvement_delta && card.improvement_delta > 0 && (
+            <div className="flex justify-center mb-6">
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-full font-bold shadow-lg">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                  <path d="M12 19V5M5 12l7-7 7 7" />
+                </svg>
+                Improved +{card.improvement_delta} points
+                <span className="text-white/70 text-sm">
+                  (from {card.improvement_previous_score})
+                </span>
+              </div>
+            </div>
+          )}
 
           {/* Celebration message for good scores */}
           {isGoodScore && (

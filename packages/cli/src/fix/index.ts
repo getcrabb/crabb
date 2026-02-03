@@ -4,6 +4,7 @@ import { buildScanResult, getExitCode } from '../scoring/index.js';
 import { runOpenClawAudit } from '../openclaw/index.js';
 import { askFixConsent } from './consent.js';
 import { calculateDelta } from './delta.js';
+import { createBackup, formatBackupInfo, getRestoreCommand, type BackupResult } from './backup.js';
 import {
   printScore,
   printFindings,
@@ -11,8 +12,10 @@ import {
   printFixDelta,
   printError,
   printSuccess,
+  printWarning,
   createSpinner,
 } from '../output/terminal.js';
+import chalk from 'chalk';
 
 export interface FixFlowOptions {
   openclawPath: string;
@@ -21,6 +24,7 @@ export interface FixFlowOptions {
   json: boolean;
   deep: boolean;
   fixOnly?: boolean;
+  noBackup?: boolean;
   cliVersion: string;
 }
 
@@ -29,18 +33,20 @@ export interface FixFlowResult {
   beforeResult: ScanResult;
   afterResult: ScanResult | null;
   applied: boolean;
+  backup?: BackupResult;
 }
 
 /**
  * Runs the complete fix flow:
  * 1. Pre-scan
  * 2. Show findings + consent prompt
- * 3. Run openclaw security audit --fix
- * 4. Post-scan
- * 5. Calculate and display delta
+ * 3. Create backup (unless --no-backup)
+ * 4. Run openclaw security audit --fix
+ * 5. Post-scan
+ * 6. Calculate and display delta
  */
 export async function runFixFlow(options: FixFlowOptions): Promise<FixFlowResult> {
-  const { openclawPath, openclawInfo, yes, json, deep, fixOnly = false, cliVersion } = options;
+  const { openclawPath, openclawInfo, yes, json, deep, fixOnly = false, noBackup = false, cliVersion } = options;
 
   // Step 1: Pre-scan
   const preSpinner = json ? null : createSpinner('Pre-scan: analyzing current state...');
@@ -111,7 +117,45 @@ export async function runFixFlow(options: FixFlowOptions): Promise<FixFlowResult
     };
   }
 
-  // Step 3: Run fix
+  // Step 3: Create backup (unless --no-backup)
+  let backup: BackupResult | undefined;
+
+  if (!noBackup) {
+    const backupSpinner = json ? null : createSpinner('Creating backup...');
+    backupSpinner?.start();
+
+    try {
+      backup = await createBackup(openclawPath);
+      backupSpinner?.stop();
+
+      if (!json) {
+        if (backup.filesCopied > 0) {
+          console.log(chalk.dim(`\nBackup created: ${backup.path}`));
+          console.log(chalk.dim(`Files backed up: ${backup.filesCopied}`));
+          console.log(chalk.dim(`To restore: ${getRestoreCommand(backup, openclawPath)}\n`));
+        } else {
+          printWarning('No files to backup (directory may be empty)');
+        }
+
+        if (backup.errors.length > 0) {
+          for (const error of backup.errors) {
+            printWarning(`Backup warning: ${error}`);
+          }
+        }
+      }
+    } catch (err) {
+      backupSpinner?.stop();
+      printError(`Failed to create backup: ${err instanceof Error ? err.message : String(err)}`);
+
+      if (!json) {
+        console.log(chalk.yellow('\nProceeding without backup. Use --no-backup to suppress this warning.'));
+      }
+    }
+  } else if (!json) {
+    console.log(chalk.dim('\nSkipping backup (--no-backup specified)'));
+  }
+
+  // Step 4: Run fix
   const fixSpinner = json ? null : createSpinner('Applying fixes via OpenClaw...');
   fixSpinner?.start();
 
@@ -127,6 +171,10 @@ export async function runFixFlow(options: FixFlowOptions): Promise<FixFlowResult
   if (!fixResult.success) {
     printError(`Fix failed: ${fixResult.stderr || 'Unknown error'}`);
 
+    if (backup && !json) {
+      console.log(chalk.yellow(`\nTo restore from backup: ${getRestoreCommand(backup, openclawPath)}`));
+    }
+
     if (json) {
       console.log(JSON.stringify({
         status: 'fix_failed',
@@ -134,6 +182,7 @@ export async function runFixFlow(options: FixFlowOptions): Promise<FixFlowResult
         before: beforeResult,
         after: null,
         applied: false,
+        backup: backup ? { path: backup.path, filesCopied: backup.filesCopied } : null,
       }, null, 2));
     }
 
@@ -142,6 +191,7 @@ export async function runFixFlow(options: FixFlowOptions): Promise<FixFlowResult
       beforeResult,
       afterResult: null,
       applied: false,
+      backup,
     };
   }
 
@@ -149,12 +199,16 @@ export async function runFixFlow(options: FixFlowOptions): Promise<FixFlowResult
   if (fixOnly) {
     if (!json) {
       printSuccess('Fix applied. Skipping post-scan (--fix-only mode).');
+      if (backup) {
+        console.log(chalk.dim(`Backup available at: ${backup.path}`));
+      }
     } else {
       console.log(JSON.stringify({
         status: 'fix_only',
         before: beforeResult,
         after: null,
         applied: true,
+        backup: backup ? { path: backup.path, filesCopied: backup.filesCopied } : null,
       }, null, 2));
     }
 
@@ -163,10 +217,11 @@ export async function runFixFlow(options: FixFlowOptions): Promise<FixFlowResult
       beforeResult,
       afterResult: null,
       applied: true,
+      backup,
     };
   }
 
-  // Step 4: Post-scan
+  // Step 5: Post-scan
   const postSpinner = json ? null : createSpinner('Post-scan: verifying fixes...');
   postSpinner?.start();
 
@@ -186,7 +241,7 @@ export async function runFixFlow(options: FixFlowOptions): Promise<FixFlowResult
 
   postSpinner?.stop();
 
-  // Step 5: Calculate and display delta
+  // Step 6: Calculate and display delta
   const delta = calculateDelta(beforeResult, afterResult);
 
   if (json) {
@@ -197,11 +252,14 @@ export async function runFixFlow(options: FixFlowOptions): Promise<FixFlowResult
       delta: {
         previousScore: delta.previousScore,
         newScore: delta.newScore,
+        previousGrade: beforeResult.grade,
+        newGrade: afterResult.grade,
         fixedCount: delta.fixed.length,
         newCount: delta.newFindings.length,
         unchangedCount: delta.unchanged.length,
       },
       applied: true,
+      backup: backup ? { path: backup.path, filesCopied: backup.filesCopied } : null,
     }, null, 2));
   } else {
     console.log('\n--- After Fix ---');
@@ -212,7 +270,11 @@ export async function runFixFlow(options: FixFlowOptions): Promise<FixFlowResult
       printFindings(afterResult.findings);
     }
 
-    printFixDelta(delta);
+    printFixDelta(delta, beforeResult.grade, afterResult.grade);
+
+    if (backup) {
+      console.log(chalk.dim(`\nBackup saved at: ${backup.path}`));
+    }
   }
 
   const exitCode = getExitCode(afterResult);
@@ -222,8 +284,10 @@ export async function runFixFlow(options: FixFlowOptions): Promise<FixFlowResult
     beforeResult,
     afterResult,
     applied: true,
+    backup,
   };
 }
 
 export { askFixConsent } from './consent.js';
 export { calculateDelta, formatDeltaSummary } from './delta.js';
+export { createBackup, formatBackupInfo, getRestoreCommand } from './backup.js';

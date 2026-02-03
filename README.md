@@ -114,6 +114,15 @@ pnpm test
 cd packages/cli && pnpm dev -- --path ./fixtures/clean
 ```
 
+### Web App Env
+
+The score sharing site in `apps/web` expects these environment variables:
+
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` (public read access)
+- `SUPABASE_SERVICE_ROLE_KEY` (server-only; required for `/api/share` insert/delete)
+- `NEXT_PUBLIC_BASE_URL` (optional, defaults to `https://crabb.ai`)
+
 ## License
 
 MIT

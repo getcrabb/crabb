@@ -1,0 +1,125 @@
+name: 'Crabb Security Scan'
+description: 'Run Crabb security scan on OpenClaw agent configuration'
+author: 'Crabb'
+branding:
+  icon: 'shield'
+  color: 'blue'
+
+inputs:
+  path:
+    description: 'Path to OpenClaw directory (default: ~/.openclaw)'
+    required: false
+    default: '~/.openclaw'
+
+  fail-on-score:
+    description: 'Fail if score below this threshold (0-100)'
+    required: false
+    default: '75'
+
+  audit-mode:
+    description: 'Audit mode: auto|openclaw|crabb|off (default: auto)'
+    required: false
+    default: 'auto'
+
+  deep:
+    description: 'Run deep audit (OpenClaw only)'
+    required: false
+    default: 'false'
+
+outputs:
+  score:
+    description: 'The security score (0-100)'
+    value: ${{ steps.scan.outputs.score }}
+
+  grade:
+    description: 'The letter grade (A-F)'
+    value: ${{ steps.scan.outputs.grade }}
+
+  critical-count:
+    description: 'Number of critical findings'
+    value: ${{ steps.scan.outputs.critical_count }}
+
+  high-count:
+    description: 'Number of high findings'
+    value: ${{ steps.scan.outputs.high_count }}
+
+  result-json:
+    description: 'Full scan result as JSON'
+    value: ${{ steps.scan.outputs.result_json }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Run Crabb scan
+      id: scan
+      shell: bash
+      run: |
+        # Expand path
+        SCAN_PATH="${{ inputs.path }}"
+        if [[ "$SCAN_PATH" == "~/"* ]]; then
+          SCAN_PATH="${HOME}/${SCAN_PATH#\~/}"
+        fi
+
+        # Build command
+        CMD="npx getcrabb@latest --json --no-color"
+        CMD="$CMD --path \"$SCAN_PATH\""
+        CMD="$CMD --audit ${{ inputs.audit-mode }}"
+
+        if [[ "${{ inputs.deep }}" == "true" ]]; then
+          CMD="$CMD --deep"
+        fi
+
+        # Run scan and capture output
+        set +e
+        RESULT=$(eval $CMD 2>&1)
+        EXIT_CODE=$?
+        set -e
+
+        # Save full result
+        echo "result_json<<EOF" >> $GITHUB_OUTPUT
+        echo "$RESULT" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
+        # Parse JSON for outputs
+        SCORE=$(echo "$RESULT" | jq -r '.score // empty' 2>/dev/null || echo "0")
+        GRADE=$(echo "$RESULT" | jq -r '.grade // empty' 2>/dev/null || echo "F")
+        CRITICAL=$(echo "$RESULT" | jq -r '.findings | map(select(.severity == "critical")) | length // 0' 2>/dev/null || echo "0")
+        HIGH=$(echo "$RESULT" | jq -r '.findings | map(select(.severity == "high")) | length // 0' 2>/dev/null || echo "0")
+
+        echo "score=$SCORE" >> $GITHUB_OUTPUT
+        echo "grade=$GRADE" >> $GITHUB_OUTPUT
+        echo "critical_count=$CRITICAL" >> $GITHUB_OUTPUT
+        echo "high_count=$HIGH" >> $GITHUB_OUTPUT
+
+        # Summary output
+        echo "### Crabb Security Scan" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "- **Score:** $SCORE/100" >> $GITHUB_STEP_SUMMARY
+        echo "- **Grade:** $GRADE" >> $GITHUB_STEP_SUMMARY
+        echo "- **Critical:** $CRITICAL" >> $GITHUB_STEP_SUMMARY
+        echo "- **High:** $HIGH" >> $GITHUB_STEP_SUMMARY
+
+        # Check threshold
+        THRESHOLD=${{ inputs.fail-on-score }}
+        if [[ "$SCORE" -lt "$THRESHOLD" ]]; then
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**FAILED:** Score $SCORE is below threshold $THRESHOLD" >> $GITHUB_STEP_SUMMARY
+          echo "::error::Crabb score $SCORE is below threshold $THRESHOLD"
+          exit 1
+        fi
+
+        # Check for critical findings
+        if [[ "$CRITICAL" -gt 0 ]]; then
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**FAILED:** $CRITICAL critical findings detected" >> $GITHUB_STEP_SUMMARY
+          echo "::error::$CRITICAL critical security findings detected"
+          exit 1
+        fi
+
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**PASSED** :white_check_mark:" >> $GITHUB_STEP_SUMMARY

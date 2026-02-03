@@ -68,6 +68,7 @@ Fix Mode:
       --fix                     Run OpenClaw --fix after scan
       --fix-only                Apply fix and exit (no post-rescan)
       --yes                     Skip confirmation prompt for --fix
+      --no-backup               Skip backup before fix (default: backup enabled)
 
 Debug:
       --print-openclaw          Show raw OpenClaw output
@@ -113,6 +114,7 @@ async function main() {
         fix: { type: 'boolean', default: false },
         'fix-only': { type: 'boolean', default: false },
         yes: { type: 'boolean', default: false },
+        'no-backup': { type: 'boolean', default: false },
         'print-openclaw': { type: 'boolean', default: false },
       },
       strict: true,
@@ -141,6 +143,7 @@ async function main() {
       fix: values.fix ?? false,
       fixOnly: values['fix-only'] ?? false,
       yes: values.yes ?? false,
+      noBackup: values['no-backup'] ?? false,
       printOpenclaw: values['print-openclaw'] ?? false,
     };
   } catch (err) {
@@ -196,6 +199,7 @@ async function main() {
         json: options.json,
         deep: options.deep,
         fixOnly: options.fixOnly,
+        noBackup: options.noBackup,
         cliVersion: CLI_VERSION,
       });
 

@@ -21,8 +21,12 @@ export interface ScanOptions {
 export async function runAllScanners(options: ScanOptions): Promise<ScannerResult[]> {
   const { openclawPath, auditMode = 'crabb', openclawInfo, deep = false, printOpenclaw = false } = options;
 
+  if (auditMode === 'off') {
+    return buildEmptyResults();
+  }
+
   // Use Crabb-only scanners
-  if (auditMode === 'crabb' || auditMode === 'off' || !openclawInfo?.available) {
+  if (auditMode === 'crabb' || !openclawInfo?.available) {
     return runCrabbOnlyScanners(openclawPath);
   }
 
@@ -79,11 +83,26 @@ async function runCrabbOnlyScanners(openclawPath: string): Promise<ScannerResult
   return results;
 }
 
+function buildEmptyResults(): ScannerResult[] {
+  return [
+    { scanner: 'credentials', findings: [], penalty: 0, cap: 40 },
+    { scanner: 'skills', findings: [], penalty: 0, cap: 30 },
+    { scanner: 'permissions', findings: [], penalty: 0, cap: 20 },
+    { scanner: 'network', findings: [], penalty: 0, cap: 10 },
+  ];
+}
+
 /**
  * Runs Crabb extra scanners (credentials and skills only).
  * These are run alongside OpenClaw audit in hybrid mode.
+ *
+ * IMPORTANT: In hybrid mode, ONLY credentials and skills scanners run from Crabb.
+ * Permissions and network scanning is handled by OpenClaw CLI.
+ * This prevents duplicate scanning and ensures consistent results.
  */
 async function runCrabbExtraScanners(openclawPath: string): Promise<ScannerResult[]> {
+  // HYBRID MODE: Only credentials + skills
+  // DO NOT add permissions or network scanners here
   const results = await Promise.all([
     scanCredentials(openclawPath),
     scanSkills(openclawPath),

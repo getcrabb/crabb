@@ -44,10 +44,24 @@ const FINDING_MAPPING: Record<string, { module: FindingModule; defaultSeverity: 
 };
 
 /**
+ * Normalizes a check title to a stable ID.
+ * Used when raw finding doesn't have an explicit ID.
+ */
+export function normalizeCheckId(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/[^\w\s]/g, '')   // Remove punctuation
+    .replace(/\s+/g, '_')       // Spaces → underscore
+    .replace(/_+/g, '_')        // Collapse multiple underscores
+    .replace(/^_|_$/g, '')      // Trim leading/trailing underscores
+    .trim();
+}
+
+/**
  * Maps severity string to normalized Severity type.
  */
 function normalizeSeverity(severity: string | undefined): Severity {
-  if (!severity) return 'medium';
+  if (!severity) return 'low'; // Changed: unknown defaults to 'low' (safer)
 
   const lower = severity.toLowerCase();
   switch (lower) {
@@ -68,14 +82,14 @@ function normalizeSeverity(severity: string | undefined): Severity {
     case 'notice':
       return 'low';
     default:
-      return 'medium';
+      return 'low'; // Changed: unknown severity defaults to 'low' (safer)
   }
 }
 
 /**
  * Determines the module for a finding based on id or category.
  */
-function determineModule(raw: RawOpenClawFinding): FindingModule {
+function determineModule(raw: RawOpenClawFinding, normalizedId: string): FindingModule {
   // Check explicit module field
   if (raw.module) {
     const lower = raw.module.toLowerCase();
@@ -85,7 +99,12 @@ function determineModule(raw: RawOpenClawFinding): FindingModule {
     if (lower === 'network' || lower === 'gateway') return 'network';
   }
 
-  // Check known ID mappings
+  // Check known ID mappings (use normalized ID)
+  if (FINDING_MAPPING[normalizedId]) {
+    return FINDING_MAPPING[normalizedId].module;
+  }
+
+  // Check original ID if different from normalized
   if (raw.id && FINDING_MAPPING[raw.id]) {
     return FINDING_MAPPING[raw.id].module;
   }
@@ -132,23 +151,42 @@ function createFingerprint(finding: Partial<Finding>): string {
 }
 
 /**
+ * Gets the default severity for a finding based on its normalized ID.
+ */
+function getDefaultSeverity(normalizedId: string, rawId?: string): Severity | null {
+  // Check normalized ID first
+  if (FINDING_MAPPING[normalizedId]) {
+    return FINDING_MAPPING[normalizedId].defaultSeverity;
+  }
+
+  // Check original ID if different
+  if (rawId && FINDING_MAPPING[rawId]) {
+    return FINDING_MAPPING[rawId].defaultSeverity;
+  }
+
+  return null;
+}
+
+/**
  * Maps raw OpenClaw finding to unified Finding format.
  */
 export function mapOpenClawFinding(raw: RawOpenClawFinding): Finding {
-  const severity = normalizeSeverity(raw.severity || raw.level);
-  const module = determineModule(raw);
-  const scanner = moduleToScannerType(module);
-
   const title = raw.title || raw.message || 'Unknown finding';
   const description = raw.description || raw.message || title;
 
-  // Apply known mapping defaults if available
-  let finalSeverity = severity;
-  if (raw.id && FINDING_MAPPING[raw.id]) {
-    // Use mapped severity only if raw severity wasn't explicit
-    if (!raw.severity && !raw.level) {
-      finalSeverity = FINDING_MAPPING[raw.id].defaultSeverity;
-    }
+  // Generate stable ID
+  const normalizedId = raw.id || normalizeCheckId(title);
+  const module = determineModule(raw, normalizedId);
+  const scanner = moduleToScannerType(module);
+
+  // Determine severity: use explicit value if present, otherwise use mapping defaults
+  let finalSeverity: Severity;
+  if (raw.severity || raw.level) {
+    finalSeverity = normalizeSeverity(raw.severity || raw.level);
+  } else {
+    // No explicit severity - use mapping or default to 'low'
+    const mappedSeverity = getDefaultSeverity(normalizedId, raw.id);
+    finalSeverity = mappedSeverity ?? 'low';
   }
 
   const finding: Finding = {
@@ -159,7 +197,7 @@ export function mapOpenClawFinding(raw: RawOpenClawFinding): Finding {
     file: raw.file,
     line: raw.line,
     confidence: 0.9, // OpenClaw findings are generally high confidence
-    id: raw.id,
+    id: normalizedId, // Always use normalized ID
     source: 'openclaw_audit',
     module,
     remediation: raw.remediation,
@@ -200,6 +238,7 @@ export function createCrabbFinding(
     file: options?.file,
     line: options?.line,
     confidence: options?.confidence ?? 0.8,
+    id: normalizeCheckId(title), // Add stable ID for Crabb findings too
     source: sourceMap[scanner],
     module: scanner,
     remediation: options?.remediation,

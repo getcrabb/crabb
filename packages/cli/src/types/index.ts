@@ -67,6 +67,7 @@ export interface CliOptions {
   fix: boolean;
   fixOnly: boolean;
   yes: boolean;
+  noBackup: boolean;
   printOpenclaw: boolean;
 }
 
@@ -87,6 +88,13 @@ export interface SharePayload {
   auditMode?: AuditMode;
   openclawVersion?: string | null;
   cliVersion?: string;
+  // v0.8: Verified badge (score >= 75 && no critical)
+  verified?: boolean;
+  // v0.8: Improvement delta (for repeated scans after fix)
+  improvement?: {
+    previousScore: number;
+    delta: number;
+  };
 }
 
 export interface ShareResponse {

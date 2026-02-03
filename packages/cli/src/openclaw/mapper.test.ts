@@ -1,7 +1,33 @@
 import { describe, it, expect } from 'vitest';
-import { mapOpenClawFinding, createCrabbFinding } from './mapper.js';
+import { mapOpenClawFinding, createCrabbFinding, normalizeCheckId } from './mapper.js';
 
 describe('mapper', () => {
+  describe('normalizeCheckId', () => {
+    it('converts title to lowercase snake_case', () => {
+      expect(normalizeCheckId('API Key Exposed')).toBe('api_key_exposed');
+      expect(normalizeCheckId('Gateway Exposed No Auth')).toBe('gateway_exposed_no_auth');
+    });
+
+    it('removes punctuation', () => {
+      expect(normalizeCheckId('API-Key: Exposed!')).toBe('apikey_exposed');
+      expect(normalizeCheckId("Token's value (leaked)")).toBe('tokens_value_leaked');
+    });
+
+    it('collapses multiple spaces/underscores', () => {
+      expect(normalizeCheckId('API   Key   Found')).toBe('api_key_found');
+      expect(normalizeCheckId('Test  __  Case')).toBe('test_case');
+    });
+
+    it('trims leading/trailing underscores', () => {
+      expect(normalizeCheckId('  API Key  ')).toBe('api_key');
+      expect(normalizeCheckId('_test_')).toBe('test');
+    });
+
+    it('handles empty string', () => {
+      expect(normalizeCheckId('')).toBe('');
+    });
+  });
+
   describe('mapOpenClawFinding', () => {
     it('maps known finding ID to correct module and severity', () => {
       const raw = {
@@ -15,6 +41,27 @@ describe('mapper', () => {
       expect(finding.module).toBe('network');
       expect(finding.severity).toBe('critical');
       expect(finding.source).toBe('openclaw_audit');
+      expect(finding.id).toBe('gateway_exposed_no_auth');
+    });
+
+    it('generates stable ID from title when not provided', () => {
+      const finding = mapOpenClawFinding({
+        severity: 'high',
+        title: 'API Key Exposed In Config',
+      });
+
+      expect(finding.id).toBe('api_key_exposed_in_config');
+    });
+
+    it('uses normalized ID for mapping when raw ID not in mapping table', () => {
+      // Title that matches a mapping after normalization
+      const finding = mapOpenClawFinding({
+        title: 'Sandbox Disabled',
+      });
+
+      expect(finding.id).toBe('sandbox_disabled');
+      expect(finding.module).toBe('permissions');
+      expect(finding.severity).toBe('critical'); // From mapping
     });
 
     it('normalizes severity strings', () => {
@@ -34,6 +81,23 @@ describe('mapper', () => {
         });
         expect(finding.severity).toBe(expected);
       }
+    });
+
+    it('defaults to low severity for unknown checks without explicit severity', () => {
+      const finding = mapOpenClawFinding({
+        title: 'Unknown Check Type',
+      });
+
+      expect(finding.severity).toBe('low');
+    });
+
+    it('defaults to low for unrecognized severity values', () => {
+      const finding = mapOpenClawFinding({
+        severity: 'something_unknown',
+        title: 'Test',
+      });
+
+      expect(finding.severity).toBe('low');
     });
 
     it('determines module from category', () => {
@@ -81,6 +145,25 @@ describe('mapper', () => {
 
       expect(finding.remediation).toBe('Fix by doing X');
     });
+
+    it('uses mapping defaults for known IDs without explicit severity', () => {
+      const finding = mapOpenClawFinding({
+        id: 'sandbox_disabled',
+        title: 'Sandbox is disabled',
+      });
+
+      expect(finding.severity).toBe('critical'); // From FINDING_MAPPING
+    });
+
+    it('explicit severity overrides mapping defaults', () => {
+      const finding = mapOpenClawFinding({
+        id: 'sandbox_disabled',
+        title: 'Sandbox is disabled',
+        severity: 'low', // Explicit override
+      });
+
+      expect(finding.severity).toBe('low');
+    });
   });
 
   describe('createCrabbFinding', () => {
@@ -96,6 +179,17 @@ describe('mapper', () => {
       expect(finding.source).toBe('crabb_credentials');
       expect(finding.scanner).toBe('credentials');
       expect(finding.module).toBe('credentials');
+    });
+
+    it('generates stable ID from title', () => {
+      const finding = createCrabbFinding(
+        'credentials',
+        'high',
+        'API Key Found In Config',
+        'Found API key'
+      );
+
+      expect(finding.id).toBe('api_key_found_in_config');
     });
 
     it('sets default confidence', () => {

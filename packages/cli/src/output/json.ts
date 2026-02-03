@@ -35,8 +35,19 @@ export function formatJsonOutput(result: ScanResult): string {
   return JSON.stringify(output, null, 2);
 }
 
-export function buildSharePayload(result: ScanResult): SharePayload {
+export function buildSharePayload(result: ScanResult, previousScore?: number): SharePayload {
   const counts = countBySeverity(result.findings);
+
+  // Verified: score >= 75 AND no critical findings
+  const verified = result.score >= 75 && counts.critical === 0;
+
+  // Improvement delta (for post-fix shares)
+  const improvement = previousScore !== undefined && previousScore !== result.score
+    ? {
+        previousScore,
+        delta: result.score - previousScore,
+      }
+    : undefined;
 
   return {
     score: result.score,
@@ -55,5 +66,7 @@ export function buildSharePayload(result: ScanResult): SharePayload {
     auditMode: result.meta?.auditMode,
     openclawVersion: result.meta?.openclawVersion,
     cliVersion: result.meta?.cliVersion,
+    verified,
+    improvement,
   };
 }

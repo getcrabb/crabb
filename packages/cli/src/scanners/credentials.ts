@@ -1,4 +1,5 @@
 import { join } from 'node:path';
+import { readdir } from 'node:fs/promises';
 import type { Finding, ScannerResult } from '../types/index.js';
 import { readTextFile, walkDirectory, fileExists } from '../utils/fs.js';
 
@@ -195,6 +196,21 @@ export async function scanCredentials(openclawPath: string): Promise<ScannerResu
     { path: join(openclawPath, 'openclaw.json'), relative: 'openclaw.json' },
     { path: join(openclawPath, '.env'), relative: '.env' },
   ];
+
+  // Include .env.* files at the root (e.g. .env.local)
+  try {
+    const entries = await readdir(openclawPath, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.isFile() && entry.name.startsWith('.env.')) {
+        filesToScan.push({
+          path: join(openclawPath, entry.name),
+          relative: entry.name,
+        });
+      }
+    }
+  } catch {
+    // Ignore missing or inaccessible root dir
+  }
 
   const credentialsDir = join(openclawPath, 'credentials');
   if (await fileExists(credentialsDir)) {

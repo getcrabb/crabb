@@ -193,30 +193,63 @@ export function printNextSteps(result: ScanResult, openclawAvailable: boolean) {
 }
 
 /**
- * Prints fix delta (before/after comparison).
+ * Prints fix delta (before/after comparison) with grade change.
  */
-export function printFixDelta(delta: ScanDelta) {
+export function printFixDelta(delta: ScanDelta, previousGrade?: Grade, newGrade?: Grade) {
   const scoreChange = delta.newScore - delta.previousScore;
   const scoreSymbol = scoreChange > 0 ? '+' : '';
   const scoreColor = scoreChange > 0 ? chalk.green : scoreChange < 0 ? chalk.red : chalk.dim;
+  const scoreArrow = scoreChange > 0 ? '\u2B06\uFE0F' : scoreChange < 0 ? '\u2B07\uFE0F' : '';
+
+  // Group fixed findings by severity
+  const fixedBySeverity = {
+    critical: delta.fixed.filter(f => f.severity === 'critical').length,
+    high: delta.fixed.filter(f => f.severity === 'high').length,
+    medium: delta.fixed.filter(f => f.severity === 'medium').length,
+    low: delta.fixed.filter(f => f.severity === 'low').length,
+  };
+
+  // Build fixed summary line
+  const fixedParts: string[] = [];
+  if (fixedBySeverity.critical > 0) fixedParts.push(`${fixedBySeverity.critical} critical`);
+  if (fixedBySeverity.high > 0) fixedParts.push(`${fixedBySeverity.high} high`);
+  if (fixedBySeverity.medium > 0) fixedParts.push(`${fixedBySeverity.medium} medium`);
+  if (fixedBySeverity.low > 0) fixedParts.push(`${fixedBySeverity.low} low`);
+
+  const fixedLine = delta.fixed.length > 0
+    ? chalk.green(`\u2713 Fixed: ${fixedParts.join(', ')}`)
+    : chalk.dim('  Fixed: 0');
+
+  // Build grade change line
+  let gradeLine = '';
+  if (previousGrade && newGrade && previousGrade !== newGrade) {
+    const prevColor = GRADE_COLORS[previousGrade];
+    const newColor = GRADE_COLORS[newGrade];
+    gradeLine = `Grade: ${prevColor(previousGrade)} \u2192 ${newColor(newGrade)}`;
+  } else if (previousGrade && newGrade) {
+    gradeLine = `Grade: ${GRADE_COLORS[newGrade](newGrade)} (unchanged)`;
+  }
+
+  // Build remaining issues summary
+  const remainingCount = delta.unchanged.length + delta.newFindings.length;
+  const remainingLine = remainingCount > 0
+    ? chalk.dim(`  Remaining: ${remainingCount} issue(s)`)
+    : chalk.green('  Remaining: 0 \u2728');
 
   console.log();
   console.log(
     boxen(
       [
-        chalk.bold('Fix Summary'),
+        chalk.bold('Fix Results'),
         '',
-        `Score: ${delta.previousScore} \u2192 ${delta.newScore} (${scoreColor(scoreSymbol + scoreChange)})`,
+        `Score: ${delta.previousScore} \u2192 ${delta.newScore} (${scoreColor(scoreSymbol + scoreChange)}) ${scoreArrow}`,
+        gradeLine,
         '',
-        delta.fixed.length > 0
-          ? chalk.green(`\u2713 Fixed: ${delta.fixed.length} issue(s)`)
-          : chalk.dim('  Fixed: 0'),
+        fixedLine,
         delta.newFindings.length > 0
           ? chalk.yellow(`\u26A0 New: ${delta.newFindings.length} issue(s)`)
-          : chalk.dim('  New: 0'),
-        delta.unchanged.length > 0
-          ? chalk.dim(`  Unchanged: ${delta.unchanged.length} issue(s)`)
           : '',
+        remainingLine,
       ]
         .filter(Boolean)
         .join('\n'),
@@ -229,14 +262,28 @@ export function printFixDelta(delta: ScanDelta) {
   );
   console.log();
 
-  // Show fixed issues
+  // Show fixed issues grouped by severity
   if (delta.fixed.length > 0) {
     console.log(chalk.green.bold('Fixed issues:'));
-    for (const finding of delta.fixed.slice(0, 5)) {
-      console.log(chalk.green(`  \u2713 ${finding.title}`));
+
+    // Show critical first, then high, then others
+    const severityOrder = ['critical', 'high', 'medium', 'low'] as const;
+    let shown = 0;
+    const maxShow = 8;
+
+    for (const severity of severityOrder) {
+      const severityFindings = delta.fixed.filter(f => f.severity === severity);
+      for (const finding of severityFindings) {
+        if (shown >= maxShow) break;
+        const severityColor = SEVERITY_COLORS[finding.severity];
+        console.log(chalk.green(`  \u2713 `) + severityColor(`[${severity.toUpperCase()}] `) + finding.title);
+        shown++;
+      }
+      if (shown >= maxShow) break;
     }
-    if (delta.fixed.length > 5) {
-      console.log(chalk.dim(`  ... and ${delta.fixed.length - 5} more`));
+
+    if (delta.fixed.length > maxShow) {
+      console.log(chalk.dim(`  ... and ${delta.fixed.length - maxShow} more`));
     }
     console.log();
   }
@@ -245,7 +292,11 @@ export function printFixDelta(delta: ScanDelta) {
   if (delta.newFindings.length > 0) {
     console.log(chalk.yellow.bold('New issues detected:'));
     for (const finding of delta.newFindings.slice(0, 3)) {
-      console.log(chalk.yellow(`  \u26A0 ${finding.title}`));
+      const severityColor = SEVERITY_COLORS[finding.severity];
+      console.log(chalk.yellow(`  \u26A0 `) + severityColor(`[${finding.severity.toUpperCase()}] `) + finding.title);
+    }
+    if (delta.newFindings.length > 3) {
+      console.log(chalk.dim(`  ... and ${delta.newFindings.length - 3} more`));
     }
     console.log();
   }

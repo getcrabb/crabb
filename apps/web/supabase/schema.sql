@@ -3,7 +3,8 @@
 create table if not exists score_cards (
   id uuid primary key default gen_random_uuid(),
   public_id text unique not null,
-  delete_token text not null,
+  -- Store only a hash of the delete token (never store raw token)
+  delete_token_hash text not null,
   score integer not null check (score >= 0 and score <= 100),
   grade text not null check (grade in ('A', 'B', 'C', 'D', 'F')),
 
@@ -24,7 +25,14 @@ create table if not exists score_cards (
   audit_mode text check (audit_mode in ('auto', 'openclaw', 'crabb', 'off')),
   openclaw_version text,
   created_at timestamptz default now(),
-  expires_at timestamptz default now() + interval '90 days'
+  expires_at timestamptz default now() + interval '90 days',
+
+  -- v0.8: Verified badge (score >= 75 && no critical)
+  verified boolean default null,
+
+  -- v0.8: Improvement delta (for post-fix scans)
+  improvement_delta integer default null,
+  improvement_previous_score integer default null
 );
 
 -- Index for public_id lookups
@@ -36,26 +44,14 @@ create index if not exists idx_score_cards_expires_at on score_cards(expires_at)
 -- RLS policies
 alter table score_cards enable row level security;
 
--- Allow anonymous inserts (for CLI)
-create policy "Allow anonymous inserts"
-  on score_cards
-  for insert
-  to anon
-  with check (true);
-
--- Allow public reads for non-expired cards
+-- Allow public reads for non-expired cards (read-only)
 create policy "Allow public reads"
   on score_cards
   for select
   to anon
   using (expires_at > now());
 
--- Allow deletes with valid token (handled in API)
-create policy "Allow deletes"
-  on score_cards
-  for delete
-  to anon
-  using (true);
+-- Inserts/deletes should be performed via server-side service role (RLS bypass)
 
 -- Cleanup function for expired cards
 create or replace function cleanup_expired_score_cards()
@@ -75,3 +71,20 @@ $$ language plpgsql security definer;
 -- ALTER TABLE score_cards ADD COLUMN IF NOT EXISTS audit_mode text
 --   CHECK (audit_mode IN ('auto', 'openclaw', 'crabb', 'off'));
 -- ALTER TABLE score_cards ADD COLUMN IF NOT EXISTS openclaw_version text;
+
+-- Migration v0.8.1: Add verified badge and improvement delta columns
+-- Run this on existing databases:
+--
+-- ALTER TABLE score_cards ADD COLUMN IF NOT EXISTS verified boolean DEFAULT null;
+-- ALTER TABLE score_cards ADD COLUMN IF NOT EXISTS improvement_delta integer DEFAULT null;
+-- ALTER TABLE score_cards ADD COLUMN IF NOT EXISTS improvement_previous_score integer DEFAULT null;
+
+-- Migration v0.9: Replace raw delete tokens with hashed tokens
+-- (requires pgcrypto extension for digest function)
+-- create extension if not exists pgcrypto;
+-- ALTER TABLE score_cards ADD COLUMN IF NOT EXISTS delete_token_hash text;
+-- UPDATE score_cards
+--   SET delete_token_hash = encode(digest(delete_token, 'sha256'), 'hex')
+--   WHERE delete_token_hash IS NULL AND delete_token IS NOT NULL;
+-- ALTER TABLE score_cards ALTER COLUMN delete_token_hash SET NOT NULL;
+-- ALTER TABLE score_cards DROP COLUMN IF EXISTS delete_token;
