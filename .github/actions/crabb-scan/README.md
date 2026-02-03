@@ -15,7 +15,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Run Crabb Security Scan
-        uses: crabb-ai/crabb/.github/actions/crabb-scan@main
+        uses: getcrabb/crabb/.github/actions/crabb-scan@main
         with:
           path: ~/.openclaw
           fail-on-score: 75
@@ -45,13 +45,13 @@ jobs:
 ### Basic Usage
 
 ```yaml
-- uses: crabb-ai/crabb/.github/actions/crabb-scan@main
+- uses: getcrabb/crabb/.github/actions/crabb-scan@main
 ```
 
 ### Custom Threshold
 
 ```yaml
-- uses: crabb-ai/crabb/.github/actions/crabb-scan@main
+- uses: getcrabb/crabb/.github/actions/crabb-scan@main
   with:
     fail-on-score: 80
 ```
@@ -59,7 +59,7 @@ jobs:
 ### Deep Scan with OpenClaw
 
 ```yaml
-- uses: crabb-ai/crabb/.github/actions/crabb-scan@main
+- uses: getcrabb/crabb/.github/actions/crabb-scan@main
   with:
     audit-mode: openclaw
     deep: true
@@ -70,7 +70,7 @@ jobs:
 ```yaml
 - name: Run Crabb Scan
   id: crabb
-  uses: crabb-ai/crabb/.github/actions/crabb-scan@main
+  uses: getcrabb/crabb/.github/actions/crabb-scan@main
 
 - name: Comment on PR
   if: github.event_name == 'pull_request'

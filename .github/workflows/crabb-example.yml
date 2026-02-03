@@ -22,12 +22,12 @@ jobs:
 
       - name: Run Crabb Security Scan
         id: crabb
-        uses: crabb-ai/crabb/.github/actions/crabb-scan@main
+        uses: ./.github/actions/crabb-scan
         with:
           # Customize these options:
           path: ~/.openclaw
-          fail-on-score: 75
-          audit-mode: auto
+          fail-on-score: 0  # Don't fail in example (no real openclaw config)
+          audit-mode: crabb
 
       - name: Display Results
         if: always()
