@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createHash, timingSafeEqual } from 'node:crypto';
-import { supabase } from '@/lib/supabase';
-import { supabaseAdmin } from '@/lib/supabase-admin';
+import { sql } from '@/lib/db';
 import { checkRateLimit } from '@/lib/rate-limit';
 
-if (!supabaseAdmin) {
-  console.warn('Supabase admin not configured - delete API will return mock responses or errors');
+if (!sql) {
+  console.warn('Neon database not configured - delete API will return mock responses');
 }
 
 function getClientIp(request: NextRequest): string {
@@ -27,57 +26,14 @@ function safeEqual(a: string, b: string): boolean {
   return timingSafeEqual(aBuf, bBuf);
 }
 
-function isMissingColumn(error: { message?: string; details?: string }, column: string): boolean {
-  const message = `${error.message ?? ''} ${error.details ?? ''}`.toLowerCase();
-  return message.includes(`column`) && message.includes(column.toLowerCase()) && message.includes('does not exist');
-}
+async function fetchStoredTokenHash(id: string): Promise<string | null> {
+  if (!sql) return null;
 
-async function fetchStoredToken(id: string): Promise<{ hash?: string; legacy?: string } | null> {
-  if (!supabaseAdmin) return null;
+  const rows = await sql`SELECT delete_token_hash FROM score_cards WHERE public_id = ${id} LIMIT 1`;
 
-  const hashResult = await supabaseAdmin
-    .from('score_cards')
-    .select('delete_token_hash')
-    .eq('public_id', id)
-    .single();
+  if (!rows || rows.length === 0) return null;
 
-  if (hashResult.error) {
-    if (isMissingColumn(hashResult.error, 'delete_token_hash')) {
-      const legacyResult = await supabaseAdmin
-        .from('score_cards')
-        .select('delete_token')
-        .eq('public_id', id)
-        .single();
-
-      if (legacyResult.error || !legacyResult.data) {
-        return null;
-      }
-
-      return { legacy: legacyResult.data.delete_token as string };
-    }
-
-    return null;
-  }
-
-  if (!hashResult.data) return null;
-
-  const hashValue = hashResult.data.delete_token_hash as string | null;
-  if (hashValue) {
-    return { hash: hashValue };
-  }
-
-  // Fallback to legacy token if hash is null
-  const legacyResult = await supabaseAdmin
-    .from('score_cards')
-    .select('delete_token')
-    .eq('public_id', id)
-    .single();
-
-  if (legacyResult.error || !legacyResult.data) {
-    return null;
-  }
-
-  return { legacy: legacyResult.data.delete_token as string };
+  return (rows[0] as { delete_token_hash: string } | undefined)?.delete_token_hash ?? null;
 }
 
 export async function DELETE(
@@ -108,38 +64,23 @@ export async function DELETE(
       return NextResponse.json({ error: 'Delete token required' }, { status: 401 });
     }
 
-    if (!supabaseAdmin) {
-      if (!supabase) {
-        return NextResponse.json({ success: true });
-      }
-
-      console.error('Supabase admin not configured; cannot delete score card');
-      return NextResponse.json({ error: 'Supabase admin not configured' }, { status: 500 });
+    if (!sql) {
+      return NextResponse.json({ success: true });
     }
 
-    const stored = await fetchStoredToken(id);
-    if (!stored) {
+    const storedHash = await fetchStoredTokenHash(id);
+    if (!storedHash) {
       return NextResponse.json({ error: 'Score card not found' }, { status: 404 });
     }
 
     const tokenHash = hashDeleteToken(token);
-    const matches =
-      (stored.hash && safeEqual(tokenHash, stored.hash)) ||
-      (stored.legacy && safeEqual(token, stored.legacy));
+    const matches = safeEqual(tokenHash, storedHash);
 
     if (!matches) {
       return NextResponse.json({ error: 'Invalid delete token' }, { status: 403 });
     }
 
-    const { error } = await supabaseAdmin
-      .from('score_cards')
-      .delete()
-      .eq('public_id', id);
-
-    if (error) {
-      console.error('Delete error:', error);
-      return NextResponse.json({ error: 'Failed to delete score card' }, { status: 500 });
-    }
+    await sql`DELETE FROM score_cards WHERE public_id = ${id}`;
 
     return NextResponse.json({ success: true });
   } catch (err) {

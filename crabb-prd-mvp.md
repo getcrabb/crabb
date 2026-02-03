@@ -438,7 +438,7 @@ total_score = 100 - (cred_risk + skill_risk + perm_risk + net_risk)
 
 - **Framework:** Next.js 14+ (App Router)
 - **Hosting:** Vercel
-- **Database:** Supabase (PostgreSQL)
+- **Database:** Neon (PostgreSQL)
 - **OG images:** @vercel/og
 
 #### Monorepo
@@ -493,7 +493,7 @@ crabb/
 
 ### 10) Data and API (MVP)
 
-#### Supabase schema
+#### Postgres schema (Neon)
 
 **Table: `score_cards`**
 
@@ -702,18 +702,18 @@ Why they are not direct competitors:
 | Component | Status | Notes |
 |-----------|--------|-------|
 | apps/web (Next.js) | ✅ Done | Landing page with terminal demo |
-| POST /api/share | ✅ Done | Creates score card (mock without Supabase) |
+| POST /api/share | ✅ Done | Creates score card (mock without DB) |
 | GET /score/[id] | ✅ Done | Score card page |
 | GET /api/og/[id] | ✅ Done | OG image generation |
 | DELETE /api/share/[id] | ✅ Done | Delete endpoint |
 | Privacy policy | ✅ Done | /privacy page |
-| Supabase schema | ✅ Done | SQL ready in supabase/schema.sql |
+| Database schema | ✅ Done | SQL ready in apps/web/db/schema.sql |
 
 #### Completed (Launch)
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| Supabase project | ✅ Done | Database configured with RLS |
+| Neon project | ✅ Done | Database configured |
 | Environment vars | ✅ Done | Vercel env vars set |
 | Vercel deploy | ✅ Done | https://crabb.ai |
 | npm publish | ✅ Done | `getcrabb@0.1.1` |

@@ -1,13 +1,9 @@
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import 'server-only';
+import { neon } from '@neondatabase/serverless';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const databaseUrl = process.env.DATABASE_URL || process.env.NEON_DATABASE_URL || '';
 
-// Public (anon) client for read-only access
-export const supabase: SupabaseClient | null =
-  supabaseUrl && supabaseAnonKey
-    ? createClient(supabaseUrl, supabaseAnonKey)
-    : null;
+export const sql = databaseUrl ? neon(databaseUrl) : null;
 
 export interface ScoreCard {
   id: string;
@@ -27,9 +23,7 @@ export interface ScoreCard {
   openclaw_version: string | null;
   created_at: string;
   expires_at: string;
-  // v0.8: Verified badge
   verified: boolean | null;
-  // v0.8: Improvement delta (post-fix)
   improvement_delta: number | null;
   improvement_previous_score: number | null;
 }

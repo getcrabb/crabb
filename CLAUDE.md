@@ -10,7 +10,7 @@ Crabb.ai — CLI security scanner for OpenClaw AI agents. Produces a CRABB SCORE
 
 - **Monorepo:** Turborepo + pnpm
 - **CLI (packages/cli):** Node.js ≥18, TypeScript 5.3+, tsup (ESM build)
-- **Web (apps/web):** Next.js 14+ (App Router), Vercel, Supabase
+- **Web (apps/web):** Next.js 14+ (App Router), Vercel, Neon (PostgreSQL)
 - **Key CLI deps:** chalk, ora, boxen
 
 ## Project Structure
@@ -27,8 +27,8 @@ crabb/
 │       │       ├── share/        # POST create, DELETE
 │       │       └── og/[id]/      # OG image generation
 │       ├── src/components/       # React components
-│       ├── src/lib/              # Supabase client, utils
-│       └── supabase/schema.sql   # Database schema
+│       ├── src/lib/              # Neon DB client, utils
+│       └── db/schema.sql         # Database schema
 ├── packages/
 │   └── cli/                      # CLI scanner (npm: getcrabb)
 │       ├── src/

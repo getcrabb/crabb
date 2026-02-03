@@ -1,6 +1,6 @@
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { supabase, ScoreCard } from '@/lib/supabase';
+import { sql, ScoreCard } from '@/lib/db';
 import { CopyCommand } from '@/components/CopyCommand';
 import { ScoreRing } from '@/components/ScoreRing';
 import { ConfettiTrigger } from './ConfettiTrigger';
@@ -11,7 +11,7 @@ interface PageProps {
 }
 
 async function getScoreCard(id: string): Promise<ScoreCard | null> {
-  if (!supabase) {
+  if (!sql) {
     return {
       id: 'mock-id',
       public_id: id,
@@ -36,40 +36,34 @@ async function getScoreCard(id: string): Promise<ScoreCard | null> {
     };
   }
 
-  const { data, error } = await supabase
-    .from('score_cards')
-    .select([
-      'id',
-      'public_id',
-      'score',
-      'grade',
-      'credentials_count',
-      'skills_count',
-      'permissions_count',
-      'network_count',
-      'critical_count',
-      'high_count',
-      'medium_count',
-      'low_count',
-      'cli_version',
-      'audit_mode',
-      'openclaw_version',
-      'created_at',
-      'expires_at',
-      'verified',
-      'improvement_delta',
-      'improvement_previous_score',
-    ].join(','))
-    .eq('public_id', id)
-    .gt('expires_at', new Date().toISOString())
-    .single();
+  const rows = await sql`
+    SELECT
+      id,
+      public_id,
+      score,
+      grade,
+      credentials_count,
+      skills_count,
+      permissions_count,
+      network_count,
+      critical_count,
+      high_count,
+      medium_count,
+      low_count,
+      cli_version,
+      audit_mode,
+      openclaw_version,
+      created_at,
+      expires_at,
+      verified,
+      improvement_delta,
+      improvement_previous_score
+    FROM score_cards
+    WHERE public_id = ${id} AND expires_at > NOW()
+    LIMIT 1
+  `;
 
-  if (error || !data) {
-    return null;
-  }
-
-  // Type assertion through unknown for Supabase generic return type
-  return data as unknown as ScoreCard;
+  return (rows?.[0] as ScoreCard | undefined) ?? null;
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {

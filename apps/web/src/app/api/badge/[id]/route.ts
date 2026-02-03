@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { sql } from '@/lib/db';
 
 interface BadgeParams {
   params: { id: string };
@@ -116,7 +116,7 @@ export async function GET(request: NextRequest, { params }: BadgeParams) {
   }
 
   // Look up score card
-  if (!supabase) {
+  if (!sql) {
     // Mock response for development
     const mockBadge = generateBadge(85, 'B', true);
     return new NextResponse(mockBadge, {
@@ -127,14 +127,11 @@ export async function GET(request: NextRequest, { params }: BadgeParams) {
     });
   }
 
-  const { data: card, error } = await supabase
-    .from('score_cards')
-    .select('score, grade, verified')
-    .eq('public_id', id)
-    .gt('expires_at', new Date().toISOString())
-    .single();
+  const rows = await sql`SELECT score, grade, verified FROM score_cards WHERE public_id = ${id} AND expires_at > NOW() LIMIT 1`;
 
-  if (error || !card) {
+  const card = rows?.[0] as { score: number; grade: string; verified: boolean | null } | undefined;
+
+  if (!card) {
     return new NextResponse(generateNotFoundBadge(), {
       headers: {
         'Content-Type': 'image/svg+xml',

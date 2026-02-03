@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createHash } from 'node:crypto';
-import { supabase } from '@/lib/supabase';
-import { supabaseAdmin } from '@/lib/supabase-admin';
+import { sql } from '@/lib/db';
 import { generatePublicId, generateDeleteToken } from '@/lib/utils';
 import { checkRateLimit } from '@/lib/rate-limit';
 
-if (!supabaseAdmin) {
-  console.warn('Supabase admin not configured - share API will return mock responses or errors');
+if (!sql) {
+  console.warn('Neon database not configured - share API will return mock responses');
 }
 
 interface SharePayload {
@@ -78,11 +77,6 @@ function toInteger(value: unknown): number | null {
   return null;
 }
 
-function isMissingColumn(error: { message?: string; details?: string }, column: string): boolean {
-  const message = `${error.message ?? ''} ${error.details ?? ''}`.toLowerCase();
-  return message.includes(`column`) && message.includes(column.toLowerCase()) && message.includes('does not exist');
-}
-
 export async function POST(request: NextRequest) {
   const ip = getClientIp(request);
   const rate = checkRateLimit(`share:${ip}`, { limit: 20, windowMs: 60_000 });
@@ -121,73 +115,60 @@ export async function POST(request: NextRequest) {
     const deleteTokenHash = hashDeleteToken(deleteToken);
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://crabb.ai';
 
-    // Return mock response if Supabase not configured
-    if (!supabaseAdmin) {
-      if (!supabase) {
-        return NextResponse.json({
-          id: publicId,
-          url: `${baseUrl}/score/${publicId}`,
-          deleteToken,
-        });
-      }
-
-      console.error('Supabase admin not configured; cannot persist score card');
-      return NextResponse.json({ error: 'Supabase admin not configured' }, { status: 500 });
+    // Return mock response if DB not configured (local/dev)
+    if (!sql) {
+      return NextResponse.json({
+        id: publicId,
+        url: `${baseUrl}/score/${publicId}`,
+        deleteToken,
+      });
     }
 
     const scannerSummary = Array.isArray(payload.scannerSummary) ? payload.scannerSummary : [];
     const getScannerCount = (name: string) =>
       toCount(scannerSummary.find(s => s.scanner === name)?.findingsCount);
 
-    const insertPayload = {
-      public_id: publicId,
-      delete_token_hash: deleteTokenHash,
-      score: normalizedScore,
-      grade,
-      credentials_count: getScannerCount('credentials'),
-      skills_count: getScannerCount('skills'),
-      permissions_count: getScannerCount('permissions'),
-      network_count: getScannerCount('network'),
-      critical_count: toCount(payload.criticalCount),
-      high_count: toCount(payload.highCount),
-      medium_count: toCount(payload.mediumCount),
-      low_count: toCount(payload.lowCount),
-      cli_version: payload.cliVersion ?? null,
-      audit_mode: VALID_AUDIT_MODES.has(payload.auditMode ?? '') ? payload.auditMode : null,
-      openclaw_version: payload.openclawVersion ?? null,
-      verified,
-      improvement_delta: toInteger(payload.improvement?.delta),
-      improvement_previous_score: toInteger(payload.improvement?.previousScore),
-    };
-
-    let { data, error } = await supabaseAdmin
-      .from('score_cards')
-      .insert(insertPayload)
-      .select('id')
-      .single();
-
-    if (error && isMissingColumn(error, 'delete_token_hash')) {
-      // Fallback for legacy schema without delete_token_hash
-      const legacyPayload = {
-        ...insertPayload,
-        delete_token: deleteToken,
-      };
-      delete (legacyPayload as { delete_token_hash?: string }).delete_token_hash;
-
-      const legacyInsert = await supabaseAdmin
-        .from('score_cards')
-        .insert(legacyPayload)
-        .select('id')
-        .single();
-
-      data = legacyInsert.data;
-      error = legacyInsert.error;
-    }
-
-    if (error) {
-      console.error('Supabase error:', error);
-      return NextResponse.json({ error: 'Failed to create score card' }, { status: 500 });
-    }
+    await sql`
+      INSERT INTO score_cards (
+        public_id,
+        delete_token_hash,
+        score,
+        grade,
+        credentials_count,
+        skills_count,
+        permissions_count,
+        network_count,
+        critical_count,
+        high_count,
+        medium_count,
+        low_count,
+        cli_version,
+        audit_mode,
+        openclaw_version,
+        verified,
+        improvement_delta,
+        improvement_previous_score
+      ) VALUES (
+        ${publicId},
+        ${deleteTokenHash},
+        ${normalizedScore},
+        ${grade},
+        ${getScannerCount('credentials')},
+        ${getScannerCount('skills')},
+        ${getScannerCount('permissions')},
+        ${getScannerCount('network')},
+        ${toCount(payload.criticalCount)},
+        ${toCount(payload.highCount)},
+        ${toCount(payload.mediumCount)},
+        ${toCount(payload.lowCount)},
+        ${payload.cliVersion ?? null},
+        ${VALID_AUDIT_MODES.has(payload.auditMode ?? '') ? payload.auditMode : null},
+        ${payload.openclawVersion ?? null},
+        ${verified},
+        ${toInteger(payload.improvement?.delta)},
+        ${toInteger(payload.improvement?.previousScore)}
+      );
+    `;
 
     return NextResponse.json({
       id: publicId,
