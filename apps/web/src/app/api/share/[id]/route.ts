@@ -41,7 +41,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   const ip = getClientIp(request);
-  const rate = checkRateLimit(`delete:${ip}`, { limit: 10, windowMs: 60_000 });
+  const rate = await checkRateLimit(`delete:${ip}`, { limit: 10, windowMs: 60_000 });
 
   if (!rate.ok) {
     const retryAfter = Math.max(1, Math.ceil((rate.reset - Date.now()) / 1000));

@@ -13,8 +13,7 @@ interface PageProps {
 async function getScoreCard(id: string): Promise<ScoreCard | null> {
   if (!sql) {
     if (process.env.NODE_ENV === 'production') {
-      console.error('DATABASE_URL not configured in production');
-      return null;
+      throw new Error('DATABASE_URL not configured in production');
     }
     return {
       id: 'mock-id',

@@ -1,3 +1,6 @@
+import { Ratelimit } from '@upstash/ratelimit';
+import { Redis } from '@upstash/redis';
+
 export interface RateLimitResult {
   ok: boolean;
   limit: number;
@@ -20,14 +23,52 @@ function getStore(): Map<string, Bucket> {
   return globalAny[STORE_KEY]!;
 }
 
-export function checkRateLimit(
+const upstashUrl = process.env.UPSTASH_REDIS_REST_URL;
+const upstashToken = process.env.UPSTASH_REDIS_REST_TOKEN;
+
+const redis = upstashUrl && upstashToken
+  ? new Redis({ url: upstashUrl, token: upstashToken })
+  : null;
+
+const limiterCache = new Map<string, Ratelimit>();
+
+function getUpstashLimiter(limit: number, windowMs: number): Ratelimit | null {
+  if (!redis) return null;
+  const key = `${limit}:${windowMs}`;
+  const existing = limiterCache.get(key);
+  if (existing) return existing;
+
+  const windowSeconds = Math.max(1, Math.ceil(windowMs / 1000));
+  const limiter = new Ratelimit({
+    redis,
+    limiter: Ratelimit.slidingWindow(limit, `${windowSeconds} s`),
+    analytics: true,
+    prefix: 'crabb',
+  });
+  limiterCache.set(key, limiter);
+  return limiter;
+}
+
+export async function checkRateLimit(
   key: string,
   options?: { limit?: number; windowMs?: number }
-): RateLimitResult {
+): Promise<RateLimitResult> {
   const limit = options?.limit ?? 20;
   const windowMs = options?.windowMs ?? 60_000;
   const now = Date.now();
 
+  const upstashLimiter = getUpstashLimiter(limit, windowMs);
+  if (upstashLimiter) {
+    const result = await upstashLimiter.limit(key);
+    return {
+      ok: result.success,
+      limit: result.limit,
+      remaining: result.remaining,
+      reset: result.reset,
+    };
+  }
+
+  // Fallback: in-memory limiter (single instance)
   const store = getStore();
   const bucket = store.get(key);
 

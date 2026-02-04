@@ -120,6 +120,7 @@ The score sharing site in `apps/web` expects these environment variables:
 
 - `DATABASE_URL` (Neon Postgres connection string)
 - `NEON_DATABASE_URL` (optional alias; used if `DATABASE_URL` is not set)
+- `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` (optional, for multi-instance rate limiting)
 - `NEXT_PUBLIC_BASE_URL` (optional, defaults to `https://crabb.ai`)
 
 ## License

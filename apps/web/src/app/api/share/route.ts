@@ -79,7 +79,7 @@ function toInteger(value: unknown): number | null {
 
 export async function POST(request: NextRequest) {
   const ip = getClientIp(request);
-  const rate = checkRateLimit(`share:${ip}`, { limit: 20, windowMs: 60_000 });
+  const rate = await checkRateLimit(`share:${ip}`, { limit: 20, windowMs: 60_000 });
 
   if (!rate.ok) {
     const retryAfter = Math.max(1, Math.ceil((rate.reset - Date.now()) / 1000));
