@@ -19,7 +19,7 @@ export interface JsonOutput {
 export function formatJsonOutput(result: ScanResult): string {
   const output: JsonOutput = {
     meta: {
-      cliVersion: result.meta?.cliVersion || '0.8.0',
+      cliVersion: result.meta?.cliVersion || '1.1.1',
       auditMode: result.meta?.auditMode || 'crabb',
       openclawVersion: result.meta?.openclawVersion || null,
       openclawAvailable: result.meta?.openclawAvailable || false,

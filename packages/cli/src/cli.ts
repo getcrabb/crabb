@@ -22,7 +22,7 @@ import { fileExists } from './utils/fs.js';
 import { detectOpenClaw } from './openclaw/index.js';
 import { runFixFlow } from './fix/index.js';
 
-const CLI_VERSION = '0.8.0';
+const CLI_VERSION = '1.1.1';
 
 function parseAuditMode(value: string | undefined): AuditMode {
   if (!value) return 'auto';
