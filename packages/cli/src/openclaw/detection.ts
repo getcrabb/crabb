@@ -50,7 +50,7 @@ export async function getOpenClawVersion(openclawPath: string): Promise<string |
       if (code === 0 && stdout.trim()) {
         // Parse version from output like "openclaw v2.1.0" or "2.1.0"
         const match = stdout.trim().match(/v?(\d+\.\d+\.\d+)/);
-        resolve(match ? match[1] : stdout.trim());
+        resolve(match?.[1] ?? stdout.trim());
       } else {
         resolve(null);
       }

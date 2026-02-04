@@ -4,7 +4,7 @@ import { sql } from '@/lib/db';
 import { generatePublicId, generateDeleteToken } from '@/lib/utils';
 import { checkRateLimit } from '@/lib/rate-limit';
 
-if (!sql) {
+if (!sql && process.env.NODE_ENV !== 'production') {
   console.warn('Neon database not configured - share API will return mock responses');
 }
 
@@ -115,8 +115,12 @@ export async function POST(request: NextRequest) {
     const deleteTokenHash = hashDeleteToken(deleteToken);
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://crabb.ai';
 
-    // Return mock response if DB not configured (local/dev)
+    // Return mock response if DB not configured (local/dev only)
     if (!sql) {
+      if (process.env.NODE_ENV === 'production') {
+        console.error('DATABASE_URL not configured in production');
+        return NextResponse.json({ error: 'Service unavailable' }, { status: 500 });
+      }
       return NextResponse.json({
         id: publicId,
         url: `${baseUrl}/score/${publicId}`,

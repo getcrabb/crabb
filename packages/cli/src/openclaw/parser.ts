@@ -88,20 +88,19 @@ function parseTextFindings(text: string): Finding[] {
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
+    if (!line) continue;
 
     // Check severity pattern
     const severityMatch = line.match(severityPattern);
-    if (severityMatch) {
+    if (severityMatch && severityMatch[1] && severityMatch[2]) {
       const severity = severityMatch[1].toLowerCase() as Severity;
       const title = severityMatch[2].trim();
 
       // Look for description in next line if it's indented or starts with common patterns
       let description = title;
-      if (i + 1 < lines.length) {
-        const nextLine = lines[i + 1];
-        if (nextLine.match(/^\s{2,}/) || nextLine.match(/^[\t]/)) {
-          description = nextLine.trim();
-        }
+      const nextLine = lines[i + 1];
+      if (nextLine && (nextLine.match(/^\s{2,}/) || nextLine.match(/^[\t]/))) {
+        description = nextLine.trim();
       }
 
       findings.push(
@@ -116,7 +115,7 @@ function parseTextFindings(text: string): Finding[] {
 
     // Check for failure pattern (✗)
     const checkMatch = line.match(checkPattern);
-    if (checkMatch && (checkMatch[1] === '✗' || checkMatch[1] === '✘')) {
+    if (checkMatch && checkMatch[2] && (checkMatch[1] === '✗' || checkMatch[1] === '✘')) {
       const message = checkMatch[2].trim();
       // Failed checks without explicit severity default to medium
       findings.push(
@@ -139,7 +138,7 @@ export function extractSummary(text: string): { passed: number; failed: number }
   const summaryPattern = /(\d+)\s*passed.*?(\d+)\s*failed/i;
   const match = text.match(summaryPattern);
 
-  if (match) {
+  if (match && match[1] && match[2]) {
     return {
       passed: parseInt(match[1], 10),
       failed: parseInt(match[2], 10),

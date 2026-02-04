@@ -48,7 +48,7 @@ export function cleanupPathOverride(override: PathOverride | null): void {
  * Builds environment variables for running openclaw with custom path.
  */
 export function buildEnvWithOverride(override: PathOverride | null): NodeJS.ProcessEnv {
-  const env = { ...process.env, NO_COLOR: '1' };
+  const env: NodeJS.ProcessEnv = { ...process.env, NO_COLOR: '1' };
 
   if (override) {
     env['HOME'] = override.tempHome;

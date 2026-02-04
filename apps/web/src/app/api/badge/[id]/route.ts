@@ -117,6 +117,10 @@ export async function GET(request: NextRequest, { params }: BadgeParams) {
 
   // Look up score card
   if (!sql) {
+    if (process.env.NODE_ENV === 'production') {
+      console.error('DATABASE_URL not configured in production');
+      return new NextResponse('Service unavailable', { status: 500 });
+    }
     // Mock response for development
     const mockBadge = generateBadge(85, 'B', true);
     return new NextResponse(mockBadge, {

@@ -3,7 +3,7 @@ import { createHash, timingSafeEqual } from 'node:crypto';
 import { sql } from '@/lib/db';
 import { checkRateLimit } from '@/lib/rate-limit';
 
-if (!sql) {
+if (!sql && process.env.NODE_ENV !== 'production') {
   console.warn('Neon database not configured - delete API will return mock responses');
 }
 
@@ -65,6 +65,10 @@ export async function DELETE(
     }
 
     if (!sql) {
+      if (process.env.NODE_ENV === 'production') {
+        console.error('DATABASE_URL not configured in production');
+        return NextResponse.json({ error: 'Service unavailable' }, { status: 500 });
+      }
       return NextResponse.json({ success: true });
     }
 

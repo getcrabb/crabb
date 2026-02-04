@@ -105,8 +105,11 @@ function determineModule(raw: RawOpenClawFinding, normalizedId: string): Finding
   }
 
   // Check original ID if different from normalized
-  if (raw.id && FINDING_MAPPING[raw.id]) {
-    return FINDING_MAPPING[raw.id].module;
+  if (raw.id) {
+    const mapping = FINDING_MAPPING[raw.id];
+    if (mapping) {
+      return mapping.module;
+    }
   }
 
   // Check category

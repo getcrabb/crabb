@@ -29,7 +29,7 @@ const UNKNOWN_FLAG_PATTERNS = [
 function parseFailedFlag(stderr: string): string | null {
   for (const pattern of UNKNOWN_FLAG_PATTERNS) {
     const match = stderr.match(pattern);
-    if (match) {
+    if (match?.[1]) {
       return match[1];
     }
   }
