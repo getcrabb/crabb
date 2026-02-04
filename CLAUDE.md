@@ -154,11 +154,31 @@ Crabb v0.8 pivots from standalone scanner to wrapper over `openclaw security aud
 └── workspace/skills/
 ```
 
+## Infrastructure
+
+**Production:**
+- **Web hosting:** Vercel (auto-deploy from `main`)
+- **Database:** Neon PostgreSQL (serverless)
+- **Domain:** crabb.ai
+
+**Environment Variables (Vercel):**
+- `DATABASE_URL` — Neon connection string (configured)
+
+**Database:**
+- Schema: `apps/web/db/schema.sql`
+- Client: `@neondatabase/serverless` (tagged template literals)
+- No ORM — raw SQL with auto-parameterization
+
+**CI/CD:**
+- GitHub Actions: `.github/workflows/crabb-example.yml`
+- Vercel: auto-deploy on push to `main`
+
 ## API Endpoints (apps/web)
 
 - `POST /api/share` — create score card
 - `GET /score/[id]` — render score card page
 - `GET /api/og/[id]` — OG image generation
+- `GET /api/badge/[id]` — SVG badge for README
 - `DELETE /api/share/[id]` — delete with token
 
 ## Privacy Rules
@@ -169,7 +189,7 @@ Crabb v0.8 pivots from standalone scanner to wrapper over `openclaw security aud
 
 ## Testing
 
-**Unit Tests (71 passing):**
+**Unit Tests (87 passing):**
 - `src/scoring/index.test.ts` — scoring formula, grades
 - `src/utils/redact.test.ts` — secret redaction
 - `src/scanners/*.test.ts` — credentials, skills, permissions
