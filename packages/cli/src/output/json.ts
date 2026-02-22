@@ -1,4 +1,4 @@
-import type { ScanResult, SharePayload } from '../types/index.js';
+import type { ScanResult, SharePayload, ShareSource, ShareTheme } from '../types/index.js';
 import { countBySeverity } from '../scoring/index.js';
 
 export interface JsonOutput {
@@ -14,6 +14,13 @@ export interface JsonOutput {
   scanners: ScanResult['scanners'];
   findings: ScanResult['findings'];
   openclawPath: string;
+}
+
+interface SharePayloadOptions {
+  previousScore?: number;
+  source?: ShareSource;
+  campaign?: string;
+  theme?: ShareTheme;
 }
 
 export function formatJsonOutput(result: ScanResult): string {
@@ -35,23 +42,26 @@ export function formatJsonOutput(result: ScanResult): string {
   return JSON.stringify(output, null, 2);
 }
 
-export function buildSharePayload(result: ScanResult, previousScore?: number): SharePayload {
+export function buildSharePayload(result: ScanResult, options: SharePayloadOptions = {}): SharePayload {
   const counts = countBySeverity(result.findings);
 
   // Verified: score >= 75 AND no critical findings
   const verified = result.score >= 75 && counts.critical === 0;
 
   // Improvement delta (for post-fix shares)
-  const improvement = previousScore !== undefined && previousScore !== result.score
+  const improvement = options.previousScore !== undefined && options.previousScore !== result.score
     ? {
-        previousScore,
-        delta: result.score - previousScore,
+        previousScore: options.previousScore,
+        delta: result.score - options.previousScore,
       }
     : undefined;
 
   return {
     score: result.score,
     grade: result.grade,
+    source: options.source,
+    campaign: options.campaign,
+    theme: options.theme,
     scannerSummary: result.scanners.map(s => ({
       scanner: s.scanner,
       findingsCount: s.findings.length,

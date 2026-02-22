@@ -1,6 +1,12 @@
 import { parseArgs } from 'node:util';
 import { exit } from 'node:process';
-import type { CliOptions, AuditMode, OpenClawInfo } from './types/index.js';
+import type {
+  CliOptions,
+  AuditMode,
+  OpenClawInfo,
+  ShareSource,
+  ShareTheme,
+} from './types/index.js';
 import { getDefaultOpenClawPath } from './config/paths.js';
 import { runAllScanners } from './scanners/index.js';
 import { buildScanResult, getExitCode } from './scoring/index.js';
@@ -23,6 +29,16 @@ import { detectOpenClaw } from './openclaw/index.js';
 import { runFixFlow } from './fix/index.js';
 
 const CLI_VERSION = '1.1.1';
+const VALID_SHARE_SOURCES: ReadonlySet<ShareSource> = new Set([
+  'cli',
+  'skill',
+  'ci',
+  'social_x',
+  'social_tg',
+  'github',
+  'direct',
+]);
+const VALID_SHARE_THEMES: ReadonlySet<ShareTheme> = new Set(['cyber', 'meme', 'minimal']);
 
 function parseAuditMode(value: string | undefined): AuditMode {
   if (!value) return 'auto';
@@ -31,6 +47,33 @@ function parseAuditMode(value: string | undefined): AuditMode {
     return lower as AuditMode;
   }
   throw new Error(`Invalid audit mode: ${value}. Use: auto, openclaw, crabb, or off`);
+}
+
+function parseShareSource(value: string | undefined): ShareSource {
+  if (!value) return 'cli';
+  const normalized = value.toLowerCase() as ShareSource;
+  if (VALID_SHARE_SOURCES.has(normalized)) {
+    return normalized;
+  }
+  throw new Error(
+    `Invalid share source: ${value}. Use: cli, skill, ci, social_x, social_tg, github, or direct`
+  );
+}
+
+function parseShareTheme(value: string | undefined): ShareTheme {
+  if (!value) return 'cyber';
+  const normalized = value.toLowerCase() as ShareTheme;
+  if (VALID_SHARE_THEMES.has(normalized)) {
+    return normalized;
+  }
+  throw new Error(`Invalid share theme: ${value}. Use: cyber, meme, or minimal`);
+}
+
+function normalizeCampaign(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  const normalized = value.trim();
+  if (!normalized) return undefined;
+  return normalized.slice(0, 64);
 }
 
 function resolveAuditMode(requested: AuditMode, openclawAvailable: boolean): AuditMode {
@@ -54,6 +97,9 @@ Options:
   -p, --path <dir>              Path to OpenClaw directory (default: ~/.openclaw/)
   -j, --json                    Output results as JSON
   -s, --share                   Share score card to crabb.ai
+      --source <name>           Share source: cli|skill|ci|social_x|social_tg|github|direct
+      --campaign <name>         Optional campaign tag (max 64 chars)
+      --share-theme <theme>     Share card theme: cyber|meme|minimal (default: cyber)
       --no-color                Disable colored output
 
 Audit Mode:
@@ -82,6 +128,7 @@ Examples:
   crabb --path ./my-openclaw     # Scan custom directory
   crabb --audit crabb            # Crabb scanners only
   crabb --fix                    # Scan and apply fixes
+  crabb --share --source social_x --share-theme meme
   crabb --json                   # Output as JSON
 
 Exit codes:
@@ -105,6 +152,9 @@ async function main() {
         path: { type: 'string', short: 'p' },
         json: { type: 'boolean', short: 'j', default: false },
         share: { type: 'boolean', short: 's', default: false },
+        source: { type: 'string', default: 'cli' },
+        campaign: { type: 'string' },
+        'share-theme': { type: 'string', default: 'cyber' },
         'no-color': { type: 'boolean', default: false },
         help: { type: 'boolean', short: 'h', default: false },
         version: { type: 'boolean', short: 'v', default: false },
@@ -132,11 +182,17 @@ async function main() {
     }
 
     const requestedAuditMode = parseAuditMode(values.audit);
+    const shareSource = parseShareSource(values.source);
+    const shareTheme = parseShareTheme(values['share-theme']);
+    const campaign = normalizeCampaign(values.campaign);
 
     options = {
       path: values.path ?? getDefaultOpenClawPath(),
       json: values.json ?? false,
       share: values.share ?? false,
+      source: shareSource,
+      campaign,
+      shareTheme,
       noColor: values['no-color'] ?? false,
       audit: requestedAuditMode,
       deep: values.deep ?? false,
@@ -249,7 +305,11 @@ async function main() {
       shareSpinner?.start();
 
       try {
-        const shareResponse = await shareResult(result);
+        const shareResponse = await shareResult(result, {
+          source: options.source,
+          campaign: options.campaign,
+          theme: options.shareTheme,
+        });
         shareSpinner?.stop();
 
         if (options.json) {

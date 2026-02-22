@@ -34,6 +34,12 @@ crabb --json
 
 # Fix issues (v0.8)
 crabb --fix
+
+# Social share (challenge-ready card)
+crabb --share --source social_x --campaign share-card-challenge --share-theme meme
+
+# OpenClaw Telegram share flow
+crabb --share --source social_tg --campaign tg-share-card --share-theme meme
 ```
 
 ## Score Card
@@ -75,6 +81,9 @@ Basic:
   -p, --path <dir>     Path to OpenClaw directory
   -j, --json           Output results as JSON
   -s, --share          Share score card to crabb.ai
+      --source <name>  Share source: cli|skill|ci|social_x|social_tg|github|direct
+      --campaign <id>  Optional campaign tag (up to 64 chars)
+      --share-theme    cyber|meme|minimal (default: cyber)
       --no-color       Disable colored output
 
 Audit Mode:

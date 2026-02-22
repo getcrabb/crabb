@@ -1,10 +1,16 @@
-import type { ScanResult, ShareResponse } from '../types/index.js';
+import type { ScanResult, ShareResponse, ShareSource, ShareTheme } from '../types/index.js';
 import { buildSharePayload } from '../output/json.js';
 
 const SHARE_API_URL = 'https://crabb.ai/api/share';
 
-export async function shareResult(result: ScanResult): Promise<ShareResponse> {
-  const payload = buildSharePayload(result);
+interface ShareOptions {
+  source?: ShareSource;
+  campaign?: string;
+  theme?: ShareTheme;
+}
+
+export async function shareResult(result: ScanResult, options: ShareOptions = {}): Promise<ShareResponse> {
+  const payload = buildSharePayload(result, options);
 
   const response = await fetch(SHARE_API_URL, {
     method: 'POST',
@@ -21,8 +27,8 @@ export async function shareResult(result: ScanResult): Promise<ShareResponse> {
   return response.json() as Promise<ShareResponse>;
 }
 
-export async function shareResultMock(result: ScanResult): Promise<ShareResponse> {
-  const payload = buildSharePayload(result);
+export async function shareResultMock(result: ScanResult, options: ShareOptions = {}): Promise<ShareResponse> {
+  void buildSharePayload(result, options);
 
   const mockId = `mock-${Date.now().toString(36)}`;
 

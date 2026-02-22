@@ -28,6 +28,9 @@ async function getScoreCard(id: string): Promise<ScoreCard | null> {
       high_count: 1,
       medium_count: 2,
       low_count: 1,
+      source: 'social_x',
+      campaign: 'share-card-challenge',
+      share_theme: 'cyber',
       cli_version: '0.8.0',
       audit_mode: 'auto',
       openclaw_version: '2.1.0',
@@ -53,6 +56,9 @@ async function getScoreCard(id: string): Promise<ScoreCard | null> {
       high_count,
       medium_count,
       low_count,
+      source,
+      campaign,
+      share_theme,
       cli_version,
       audit_mode,
       openclaw_version,
@@ -121,6 +127,32 @@ function getGradeEmoji(grade: string): string {
   return emojis[grade] || '❓';
 }
 
+function getSourceLabel(source: ScoreCard['source']): string | null {
+  const labels: Record<Exclude<ScoreCard['source'], null>, string> = {
+    cli: 'CLI',
+    skill: 'Skill',
+    ci: 'CI',
+    social_x: 'X',
+    social_tg: 'Telegram',
+    github: 'GitHub',
+    direct: 'Direct',
+  };
+
+  if (!source) return null;
+  return labels[source];
+}
+
+function getThemeLabel(theme: ScoreCard['share_theme']): string | null {
+  const labels: Record<Exclude<ScoreCard['share_theme'], null>, string> = {
+    cyber: 'Cyber',
+    meme: 'Meme',
+    minimal: 'Minimal',
+  };
+
+  if (!theme) return null;
+  return labels[theme];
+}
+
 export default async function ScoreCardPage({ params }: PageProps) {
   const card = await getScoreCard(params.id);
 
@@ -131,9 +163,16 @@ export default async function ScoreCardPage({ params }: PageProps) {
   const gradeColor = getGradeColor(card.grade);
   const gradeLabel = getGradeLabel(card.grade);
   const gradeEmoji = getGradeEmoji(card.grade);
+  const sourceLabel = getSourceLabel(card.source);
+  const themeLabel = getThemeLabel(card.share_theme);
 
   const totalFindings = card.credentials_count + card.skills_count + card.permissions_count + card.network_count;
   const isGoodScore = card.score >= 75;
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://crabb.ai';
+  const scoreUrl = `${baseUrl}/score/${card.public_id}`;
+  const challengeText = `I scored ${card.score}/100 (Grade ${card.grade}) on my OpenClaw security scan with CRABB. Can you beat me? 🦀 #OpenClaw #ShareCardChallenge`;
+  const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(challengeText)}&url=${encodeURIComponent(scoreUrl)}`;
+  const linkedInUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(scoreUrl)}`;
 
   return (
     <main className="min-h-screen py-12 px-4">
@@ -370,6 +409,21 @@ export default async function ScoreCardPage({ params }: PageProps) {
                   openclaw v{card.openclaw_version}
                 </span>
               )}
+              {sourceLabel && (
+                <span className="px-3 py-1 bg-[#EFF6FF] rounded-full text-xs text-[#1D4ED8]">
+                  source: {sourceLabel}
+                </span>
+              )}
+              {themeLabel && (
+                <span className="px-3 py-1 bg-[#F5F3FF] rounded-full text-xs text-[#6D28D9]">
+                  theme: {themeLabel}
+                </span>
+              )}
+              {card.campaign && (
+                <span className="px-3 py-1 bg-[#FEF3C7] rounded-full text-xs text-[#92400E] font-mono">
+                  campaign: {card.campaign}
+                </span>
+              )}
             </div>
           )}
         </div>
@@ -377,19 +431,19 @@ export default async function ScoreCardPage({ params }: PageProps) {
         {/* Share prompt */}
         <div className="text-center mt-8 p-6 bg-white/80 backdrop-blur-sm rounded-2xl">
           <p className="text-[#34495E] mb-2 font-medium">
-            Share your score on social media! 📣
+            Share Card Challenge: can your friends beat this score?
           </p>
           <p className="text-sm text-[#64748B] mb-4">
-            Let others know you take security seriously.
+            Post this card on X and tag 3 friends to run their own security scan.
           </p>
           <div className="flex justify-center gap-3">
             <SocialButton
               platform="twitter"
-              url={`https://twitter.com/intent/tweet?text=I%20scored%20${card.score}/100%20(Grade%20${card.grade})%20on%20my%20OpenClaw%20security%20scan!%20🦀&url=https://crabb.ai/score/${card.public_id}`}
+              url={tweetUrl}
             />
             <SocialButton
               platform="linkedin"
-              url={`https://www.linkedin.com/sharing/share-offsite/?url=https://crabb.ai/score/${card.public_id}`}
+              url={linkedInUrl}
             />
           </div>
         </div>

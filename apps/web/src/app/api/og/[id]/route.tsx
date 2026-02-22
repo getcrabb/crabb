@@ -3,12 +3,69 @@ import { NextRequest } from 'next/server';
 import { sql, ScoreCard } from '@/lib/db';
 import { getGradeColor, getGradeLabel } from '@/lib/utils';
 
+type ShareTheme = 'cyber' | 'meme' | 'minimal';
+
+interface ThemeConfig {
+  background: string;
+  panel: string;
+  heading: string;
+  text: string;
+  accent: string;
+  muted: string;
+  emoji: string;
+  footerTag: string;
+}
+
+const VALID_THEMES: ReadonlySet<ShareTheme> = new Set(['cyber', 'meme', 'minimal']);
+
+const THEMES: Record<ShareTheme, ThemeConfig> = {
+  cyber: {
+    background: 'linear-gradient(135deg, #0B1021 0%, #172554 100%)',
+    panel: 'rgba(13, 20, 45, 0.85)',
+    heading: '#E0F2FE',
+    text: '#F8FAFC',
+    accent: '#22D3EE',
+    muted: '#93C5FD',
+    emoji: '🦀',
+    footerTag: '#ShareCardChallenge',
+  },
+  meme: {
+    background: 'linear-gradient(135deg, #7C3AED 0%, #DB2777 50%, #F97316 100%)',
+    panel: 'rgba(255, 255, 255, 0.14)',
+    heading: '#FFF7ED',
+    text: '#FFFFFF',
+    accent: '#FDE047',
+    muted: '#FBCFE8',
+    emoji: '🔥',
+    footerTag: '#CanYouBeatMe',
+  },
+  minimal: {
+    background: 'linear-gradient(135deg, #F8FAFC 0%, #E2E8F0 100%)',
+    panel: 'rgba(255, 255, 255, 0.95)',
+    heading: '#0F172A',
+    text: '#111827',
+    accent: '#2563EB',
+    muted: '#475569',
+    emoji: '✅',
+    footerTag: '#SecureByDefault',
+  },
+};
+
+function normalizeTheme(value: string | null | undefined): ShareTheme | null {
+  if (!value) return null;
+  const normalized = value.toLowerCase() as ShareTheme;
+  return VALID_THEMES.has(normalized) ? normalized : null;
+}
+
+function resolveTheme(cardTheme: ScoreCard['share_theme'], queryTheme: string | null): ShareTheme {
+  return normalizeTheme(queryTheme) ?? normalizeTheme(cardTheme) ?? 'cyber';
+}
+
 async function getScoreCard(id: string): Promise<ScoreCard | null> {
   if (!sql) {
     if (process.env.NODE_ENV === 'production') {
       throw new Error('DATABASE_URL not configured in production');
     }
-    // Return mock data for development
     return {
       id: 'mock-id',
       public_id: id,
@@ -22,6 +79,9 @@ async function getScoreCard(id: string): Promise<ScoreCard | null> {
       high_count: 1,
       medium_count: 2,
       low_count: 1,
+      source: 'social_x',
+      campaign: 'share-card-challenge',
+      share_theme: 'cyber',
       cli_version: '0.8.0',
       audit_mode: 'auto',
       openclaw_version: null,
@@ -47,6 +107,9 @@ async function getScoreCard(id: string): Promise<ScoreCard | null> {
       high_count,
       medium_count,
       low_count,
+      source,
+      campaign,
+      share_theme,
       cli_version,
       audit_mode,
       openclaw_version,
@@ -73,8 +136,22 @@ export async function GET(
     return new Response('Not found', { status: 404 });
   }
 
+  const theme = resolveTheme(card.share_theme, request.nextUrl.searchParams.get('theme'));
+  const style = THEMES[theme];
   const gradeColor = getGradeColor(card.grade);
   const gradeLabel = getGradeLabel(card.grade);
+
+  const sourceLabelMap: Record<NonNullable<ScoreCard['source']>, string> = {
+    cli: 'CLI',
+    skill: 'Skill',
+    ci: 'CI',
+    social_x: 'X',
+    social_tg: 'Telegram',
+    github: 'GitHub',
+    direct: 'Direct',
+  };
+
+  const sourceLabel = card.source ? sourceLabelMap[card.source] : null;
 
   return new ImageResponse(
     (
@@ -83,107 +160,130 @@ export async function GET(
           height: '100%',
           width: '100%',
           display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
+          position: 'relative',
           justifyContent: 'center',
-          backgroundColor: '#1a1a2e',
-          fontFamily: 'monospace',
+          alignItems: 'center',
+          background: style.background,
+          fontFamily: 'system-ui, sans-serif',
+          color: style.text,
         }}
       >
-        {/* Background gradient */}
         <div
           style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: 'radial-gradient(circle at 50% 0%, rgba(255,107,53,0.1) 0%, transparent 50%)',
-          }}
-        />
-
-        {/* Content */}
-        <div
-          style={{
+            width: 1040,
+            height: 520,
+            borderRadius: 36,
+            background: style.panel,
+            border: `2px solid ${style.accent}55`,
             display: 'flex',
             flexDirection: 'column',
-            alignItems: 'center',
-            padding: '40px',
+            padding: '38px 46px',
+            boxShadow: '0 24px 60px rgba(0, 0, 0, 0.28)',
+            justifyContent: 'space-between',
           }}
         >
-          {/* Crab emoji */}
-          <div style={{ fontSize: 80, marginBottom: 20 }}>🦀</div>
-
-          {/* Title */}
-          <div
-            style={{
-              fontSize: 32,
-              fontWeight: 'bold',
-              color: '#ffffff',
-              marginBottom: 40,
-            }}
-          >
-            CRABB SCORE
-          </div>
-
-          {/* Score */}
-          <div style={{ display: 'flex', alignItems: 'baseline', marginBottom: 20 }}>
-            <span
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div
               style={{
-                fontSize: 120,
-                fontWeight: 'bold',
-                color: gradeColor,
+                display: 'flex',
+                fontSize: 28,
+                color: style.heading,
+                fontWeight: 700,
+                letterSpacing: 1,
               }}
             >
-              {card.score}
-            </span>
-            <span style={{ fontSize: 40, color: '#6b7280', marginLeft: 10 }}>
-              / 100
-            </span>
+              CRABB SCORE
+            </div>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  padding: '8px 14px',
+                  borderRadius: 999,
+                  fontSize: 18,
+                  background: `${style.accent}22`,
+                  color: style.accent,
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                }}
+              >
+                {theme}
+              </div>
+              {sourceLabel && (
+                <div
+                  style={{
+                    display: 'flex',
+                    padding: '8px 14px',
+                    borderRadius: 999,
+                    fontSize: 18,
+                    background: '#ffffff22',
+                    color: style.text,
+                    fontWeight: 600,
+                  }}
+                >
+                  {sourceLabel}
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Grade */}
-          <div style={{ display: 'flex', alignItems: 'center', marginBottom: 40 }}>
-            <span style={{ fontSize: 28, color: '#ffffff' }}>Grade: </span>
-            <span
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                <span style={{ fontSize: 64 }}>{style.emoji}</span>
+                <span style={{ fontSize: 54, fontWeight: 800, color: gradeColor }}>
+                  {card.score}/100
+                </span>
+              </div>
+              <div style={{ display: 'flex', fontSize: 34, color: style.text, fontWeight: 700 }}>
+                Grade {card.grade} • {gradeLabel}
+              </div>
+            </div>
+
+            <div
               style={{
-                fontSize: 36,
-                fontWeight: 'bold',
-                color: gradeColor,
-                marginLeft: 10,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 10,
+                minWidth: 330,
+                fontSize: 26,
+                color: style.muted,
               }}
             >
-              {card.grade}
-            </span>
-            <span style={{ fontSize: 24, color: '#6b7280', marginLeft: 10 }}>
-              ({gradeLabel})
-            </span>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>Critical</span>
+                <span style={{ color: '#F87171', fontWeight: 700 }}>{card.critical_count}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>High</span>
+                <span style={{ color: '#FB923C', fontWeight: 700 }}>{card.high_count}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>Medium</span>
+                <span style={{ color: '#FACC15', fontWeight: 700 }}>{card.medium_count}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>Low</span>
+                <span style={{ color: '#34D399', fontWeight: 700 }}>{card.low_count}</span>
+              </div>
+            </div>
           </div>
 
-          {/* Findings */}
           <div
             style={{
               display: 'flex',
-              gap: 30,
-              fontSize: 20,
-              color: '#9ca3af',
-            }}
-          >
-            <span>🚨 {card.critical_count} Critical</span>
-            <span>⚠️ {card.high_count} High</span>
-            <span>🟡 {card.medium_count} Medium</span>
-          </div>
-
-          {/* URL */}
-          <div
-            style={{
-              position: 'absolute',
-              bottom: 40,
+              justifyContent: 'space-between',
+              alignItems: 'center',
               fontSize: 24,
-              color: '#FF6B35',
+              color: style.muted,
+              borderTop: `1px solid ${style.accent}44`,
+              paddingTop: 18,
             }}
           >
-            crabb.ai
+            <div style={{ display: 'flex' }}>crabb.ai/score/{card.public_id}</div>
+            <div style={{ display: 'flex', color: style.accent, fontWeight: 700 }}>
+              {style.footerTag}
+            </div>
           </div>
         </div>
       </div>

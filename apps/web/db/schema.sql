@@ -22,6 +22,11 @@ create table if not exists score_cards (
   medium_count integer default 0,
   low_count integer default 0,
 
+  -- Share attribution
+  source text,
+  campaign text,
+  share_theme text,
+
   -- Metadata
   cli_version text,
   audit_mode text check (audit_mode in ('auto', 'openclaw', 'crabb', 'off')),
@@ -36,6 +41,11 @@ create table if not exists score_cards (
   improvement_delta integer default null,
   improvement_previous_score integer default null
 );
+
+-- Backfill-safe schema upgrades for existing deployments
+alter table if exists score_cards add column if not exists source text;
+alter table if exists score_cards add column if not exists campaign text;
+alter table if exists score_cards add column if not exists share_theme text;
 
 -- Index for public_id lookups
 create index if not exists idx_score_cards_public_id on score_cards(public_id);

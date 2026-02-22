@@ -60,6 +60,9 @@ export interface CliOptions {
   path: string;
   json: boolean;
   share: boolean;
+  source: ShareSource;
+  campaign?: string;
+  shareTheme: ShareTheme;
   noColor: boolean;
   // v0.8: Audit wrapper options
   audit: AuditMode;
@@ -74,6 +77,9 @@ export interface CliOptions {
 export interface SharePayload {
   score: number;
   grade: Grade;
+  source?: ShareSource;
+  campaign?: string;
+  theme?: ShareTheme;
   scannerSummary: {
     scanner: ScannerType;
     findingsCount: number;
@@ -96,6 +102,17 @@ export interface SharePayload {
     delta: number;
   };
 }
+
+export type ShareSource =
+  | 'cli'
+  | 'skill'
+  | 'ci'
+  | 'social_x'
+  | 'social_tg'
+  | 'github'
+  | 'direct';
+
+export type ShareTheme = 'cyber' | 'meme' | 'minimal';
 
 export interface ShareResponse {
   id: string;

@@ -18,6 +18,9 @@ export interface ScoreCard {
   high_count: number;
   medium_count: number;
   low_count: number;
+  source: 'cli' | 'skill' | 'ci' | 'social_x' | 'social_tg' | 'github' | 'direct' | null;
+  campaign: string | null;
+  share_theme: 'cyber' | 'meme' | 'minimal' | null;
   cli_version: string | null;
   audit_mode: 'auto' | 'openclaw' | 'crabb' | 'off' | null;
   openclaw_version: string | null;

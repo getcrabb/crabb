@@ -35,6 +35,7 @@ export default function PrivacyPage() {
               <li>Your grade (A-F)</li>
               <li>Finding counts by severity (critical, high, medium, low)</li>
               <li>Finding counts by scanner (credentials, skills, permissions, network)</li>
+              <li>Optional share metadata: source tag, campaign tag, and selected card theme</li>
               <li>CLI version</li>
             </ul>
             <p className="text-gray-400 mt-4">

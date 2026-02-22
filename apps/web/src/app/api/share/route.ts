@@ -11,6 +11,9 @@ if (!sql && process.env.NODE_ENV !== 'production') {
 interface SharePayload {
   score: number;
   grade?: string;
+  source?: ShareSource;
+  campaign?: string;
+  theme?: ShareTheme;
   scannerSummary: {
     scanner: string;
     findingsCount: number;
@@ -34,7 +37,28 @@ interface SharePayload {
   };
 }
 
+type ShareSource =
+  | 'cli'
+  | 'skill'
+  | 'ci'
+  | 'social_x'
+  | 'social_tg'
+  | 'github'
+  | 'direct';
+
+type ShareTheme = 'cyber' | 'meme' | 'minimal';
+
 const VALID_AUDIT_MODES = new Set(['auto', 'openclaw', 'crabb', 'off']);
+const VALID_SHARE_SOURCES: ReadonlySet<ShareSource> = new Set([
+  'cli',
+  'skill',
+  'ci',
+  'social_x',
+  'social_tg',
+  'github',
+  'direct',
+]);
+const VALID_SHARE_THEMES: ReadonlySet<ShareTheme> = new Set(['cyber', 'meme', 'minimal']);
 
 function getClientIp(request: NextRequest): string {
   const forwarded = request.headers.get('x-forwarded-for');
@@ -77,6 +101,26 @@ function toInteger(value: unknown): number | null {
   return null;
 }
 
+function normalizeSource(value: unknown): ShareSource {
+  if (typeof value !== 'string') return 'cli';
+  const normalized = value.toLowerCase() as ShareSource;
+  return VALID_SHARE_SOURCES.has(normalized) ? normalized : 'cli';
+}
+
+function normalizeTheme(value: unknown): ShareTheme {
+  if (typeof value !== 'string') return 'cyber';
+  const normalized = value.toLowerCase() as ShareTheme;
+  return VALID_SHARE_THEMES.has(normalized) ? normalized : 'cyber';
+}
+
+function normalizeCampaign(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const safe = trimmed.replace(/[^a-zA-Z0-9._-]/g, '-').slice(0, 64);
+  return safe || null;
+}
+
 export async function POST(request: NextRequest) {
   const ip = getClientIp(request);
   const rate = await checkRateLimit(`share:${ip}`, { limit: 20, windowMs: 60_000 });
@@ -109,6 +153,9 @@ export async function POST(request: NextRequest) {
     const criticalCount = toCount(payload.criticalCount);
     const grade = deriveGrade(normalizedScore, criticalCount);
     const verified = normalizedScore >= 75 && criticalCount === 0;
+    const source = normalizeSource(payload.source);
+    const shareTheme = normalizeTheme(payload.theme);
+    const campaign = normalizeCampaign(payload.campaign);
 
     const publicId = generatePublicId();
     const deleteToken = generateDeleteToken();
@@ -146,6 +193,9 @@ export async function POST(request: NextRequest) {
         high_count,
         medium_count,
         low_count,
+        source,
+        campaign,
+        share_theme,
         cli_version,
         audit_mode,
         openclaw_version,
@@ -165,6 +215,9 @@ export async function POST(request: NextRequest) {
         ${toCount(payload.highCount)},
         ${toCount(payload.mediumCount)},
         ${toCount(payload.lowCount)},
+        ${source},
+        ${campaign},
+        ${shareTheme},
         ${payload.cliVersion ?? null},
         ${VALID_AUDIT_MODES.has(payload.auditMode ?? '') ? payload.auditMode : null},
         ${payload.openclawVersion ?? null},

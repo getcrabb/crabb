@@ -25,6 +25,12 @@ crabb --json
 # Create shareable score card
 crabb --share
 
+# Share with social attribution + meme theme
+crabb --share --source social_x --campaign share-card-challenge --share-theme meme
+
+# OpenClaw Telegram share
+crabb --share --source social_tg --campaign tg-share-card --share-theme meme
+
 # CI-friendly (no colors)
 crabb --no-color
 ```
@@ -65,6 +71,9 @@ crabb --fix-only --yes
 | `--path <dir>` | `-p` | Path to OpenClaw directory |
 | `--json` | `-j` | Output results as JSON |
 | `--share` | `-s` | Share score card to crabb.ai |
+| `--source <name>` | | Share source: cli, skill, ci, social_x, social_tg, github, direct |
+| `--campaign <name>` | | Optional campaign tag for share attribution |
+| `--share-theme <theme>` | | Share card theme: cyber, meme, minimal |
 | `--no-color` | | Disable colored output |
 | `--help` | `-h` | Show help message |
 | `--version` | `-v` | Show version number |
