@@ -1,0 +1,4 @@
+interface:
+  display_name: "CRABB Security Audit"
+  short_description: "Audit OpenClaw security using CRABB CLI"
+  default_prompt: "Use $crabb-security-audit to scan an OpenClaw setup, summarize risks, and propose fixes."
