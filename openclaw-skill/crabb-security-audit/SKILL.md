@@ -1,6 +1,6 @@
 ---
 name: crabb-security-audit
-description: Run CRABB CLI security audits for OpenClaw installations and convert results into actionable remediation plans. Use when a user asks to check OpenClaw/agent security, run `crabb`, interpret score/findings, harden sandbox/network/skills/credentials settings, compare before/after results, or produce CI-friendly JSON security reports.
+description: Run CRABB CLI security audits for OpenClaw installations and convert results into actionable remediation plans. Use when a user asks to check OpenClaw/agent security, run `crabb`, interpret score/findings, harden sandbox/network/skills/credentials settings, compare before/after results, produce CI-friendly JSON security reports, or drive safe opt-in social sharing from chat channels such as Telegram.
 ---
 
 # Crabb Security Audit
@@ -25,8 +25,33 @@ Load `references/crabb-product-analysis.md` when detailed scanner behavior, scor
    - Score and grade
    - Critical/high findings
    - Top 3 risks and next actions
-5. Offer viral share.
-   - `crabb --path "<path>" --share --source social_x --campaign share-card-challenge --share-theme meme`
+5. Offer viral share (opt-in only).
+   - Ask first: `Want a share card?`
+   - Share only after explicit `yes`.
+
+## Proactive Share Offer (Opt-In)
+
+Always follow this pattern:
+
+1. Run scan and show results.
+2. Offer share with explicit consent request.
+   - Example: `Want me to generate a share card? It only sends aggregate counts.`
+3. If user says `yes`, run share command.
+4. If user says `no`, stop and do not repeat immediately.
+5. Never auto-share without consent.
+
+Use local cooldown helper to avoid chat spam:
+
+1. Check cooldown:
+   - `python "<skill>/scripts/telegram_share_offer.py" should-offer --user "<chat_or_user_id>" --cooldown-hours 24`
+2. If `should_offer` is true:
+   - Ask for consent and record shown:
+   - `python "<skill>/scripts/telegram_share_offer.py" record --user "<chat_or_user_id>" --event shown`
+3. On user response:
+   - Accepted: record + share
+   - Declined: record and stop
+   - `python "<skill>/scripts/telegram_share_offer.py" record --user "<chat_or_user_id>" --event accepted`
+   - `python "<skill>/scripts/telegram_share_offer.py" record --user "<chat_or_user_id>" --event declined`
 
 ## Workflow
 
@@ -63,11 +88,16 @@ Use this when CRABB is invoked by an OpenClaw agent that receives commands from 
    - `crabb --path "<path>" --json --audit auto`
 3. If user asks to publish/share, run:
    - `crabb --path "<path>" --share --source social_tg --campaign tg-share-card --share-theme meme`
-4. Return in the chat:
+4. For proactive offer (when user asked only to check):
+   - Use cooldown helper before prompting.
+   - Ask consent once.
+   - On `yes`, run share command above.
+   - On `no`, record decline and finish.
+5. Return in the chat:
    - final score and grade,
    - share URL,
    - one short challenge line user can forward.
-5. Never expose secrets or raw credential values in Telegram responses.
+6. Never expose secrets or raw credential values in Telegram responses.
 
 ## Fix Mode
 
@@ -109,3 +139,4 @@ Use fix mode only after explicit confirmation because it modifies local OpenClaw
 ## References
 
 - Read `references/crabb-product-analysis.md` for architecture and scanner-specific details.
+- Read `references/openclaw-telegram-agents-snippet.md` for copy-paste agent policy text.

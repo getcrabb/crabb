@@ -35,6 +35,8 @@ crabb --share --source social_tg --campaign tg-share-card --share-theme meme
 crabb --no-color
 ```
 
+When used from chat agents, keep sharing opt-in: ask user consent after scan results, then run `--share`.
+
 ### Audit Mode (v0.8)
 
 ```bash

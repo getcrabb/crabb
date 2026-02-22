@@ -149,3 +149,16 @@ Recommended chat-driven sequence:
 4. Agent posts only safe output:
    - score, grade, short risks summary, share URL.
 5. Agent avoids sending secrets, full file contents, or sensitive logs.
+
+## 11. Proactive Share Offer Guardrails
+
+- Proactive offer is allowed only as `opt-in`:
+  - scan first
+  - ask permission
+  - share only on explicit consent
+- Use local cooldown helper to avoid repeated prompts:
+  - `scripts/telegram_share_offer.py`
+- Local funnel events available:
+  - `shown`
+  - `accepted`
+  - `declined`

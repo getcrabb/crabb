@@ -42,6 +42,8 @@ crabb --share --source social_x --campaign share-card-challenge --share-theme me
 crabb --share --source social_tg --campaign tg-share-card --share-theme meme
 ```
 
+For chat agents (Telegram/Discord), treat `--share` as opt-in: run scan first, then ask consent before sharing.
+
 ## Score Card
 
 ```
